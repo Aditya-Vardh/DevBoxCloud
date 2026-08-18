@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnad32-platform
+  labels:
+    app.kubernetes.io/name: cnad32
+    cnad32.io/gateway: "true"

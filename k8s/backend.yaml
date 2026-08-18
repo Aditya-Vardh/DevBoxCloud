@@ -1,0 +1,110 @@
+---
+# DevBox Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devbox-backend
+  namespace: devbox
+  labels:
+    app: devbox-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devbox-backend
+  template:
+    metadata:
+      labels:
+        app: devbox-backend
+    spec:
+      serviceAccountName: devbox-backend-sa
+      containers:
+        - name: devbox-backend
+          image: devbox/backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_URL
+              value: jdbc:postgresql://devbox-postgres:5432/devboxdb
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: devbox-postgres-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: devbox-postgres-secret
+                  key: password
+            - name: K8S_NAMESPACE
+              value: devbox
+            - name: MINIKUBE_ENABLED
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+
+---
+# Backend Service (NodePort for Minikube access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: devbox-backend-svc
+  namespace: devbox
+  labels:
+    app: devbox-backend
+spec:
+  type: NodePort
+  selector:
+    app: devbox-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+
+---
+# ServiceAccount for backend (needs K8s API access)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: devbox-backend-sa
+  namespace: devbox
+
+---
+# ClusterRole for managing deployments and services
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: devbox-backend-role
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "pods", "pods/log", "namespaces"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: devbox-backend-rolebinding
+subjects:
+  - kind: ServiceAccount
+    name: devbox-backend-sa
+    namespace: devbox
+roleRef:
+  kind: ClusterRole
+  name: devbox-backend-role
+  apiGroup: rbac.authorization.k8s.io

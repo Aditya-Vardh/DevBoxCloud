@@ -1,0 +1,17 @@
+namespace: devbox
+
+backend:
+  image: devbox/backend
+  tag: latest
+  replicas: 1
+  port: 8080
+  nodePort: 30080
+
+postgres:
+  image: postgres:16-alpine
+  storage: 1Gi
+  database: devboxdb
+  username: devbox
+  password: devbox123
+
+minikubeEnabled: true

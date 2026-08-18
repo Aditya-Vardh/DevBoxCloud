@@ -1,0 +1,37 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Fully qualified immutable CNAD32 image reference
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Configure cluster access
+        run: |
+          test -n "$KUBECONFIG_B64"
+          echo "$KUBECONFIG_B64" | base64 --decode > "$RUNNER_TEMP/kubeconfig"
+          chmod 600 "$RUNNER_TEMP/kubeconfig"
+          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+      - name: Deploy CNAD32 control plane
+        run: |
+          kubectl apply -f k8s/platform/namespace.yaml
+          kubectl apply -f k8s/platform/service-account-rbac.yaml
+          kubectl apply -f k8s/platform/network-policy.yaml
+          kubectl -n cnad32-platform create secret generic cnad32-secrets --from-literal=DATABASE_URL='${{ secrets.DATABASE_URL }}' --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}' --from-literal=VITE_APP_ID='${{ secrets.VITE_APP_ID }}' --from-literal=VITE_OAUTH_PORTAL_URL='${{ secrets.VITE_OAUTH_PORTAL_URL }}' --from-literal=OAUTH_SERVER_URL='${{ secrets.OAUTH_SERVER_URL }}' --from-literal=OWNER_OPEN_ID='${{ secrets.OWNER_OPEN_ID }}' --dry-run=client -o yaml | kubectl apply -f -
+          sed "s|ghcr.io/replace-with-your-org/cnad32:latest|${{ inputs.image }}|" k8s/platform/deployment.yaml | kubectl apply -f -
+          kubectl apply -f k8s/platform/service.yaml
+          kubectl -n cnad32-platform rollout status deployment/cnad32 --timeout=180s

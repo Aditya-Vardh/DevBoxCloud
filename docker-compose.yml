@@ -1,0 +1,50 @@
+version: '3.9'
+
+# Local development stack: PostgreSQL + DevBox Backend
+# The frontend runs separately via: cd frontend && npm run dev
+# Kubernetes deployments go through Minikube — not Docker Compose.
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: devbox-postgres
+    environment:
+      POSTGRES_DB: devboxdb
+      POSTGRES_USER: devbox
+      POSTGRES_PASSWORD: devbox123
+    ports:
+      - "5432:5432"
+    volumes:
+      - devbox-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devbox -d devboxdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── DevBox Backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: devbox-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/devboxdb
+      DB_USERNAME: devbox
+      DB_PASSWORD: devbox123
+      K8S_NAMESPACE: devbox
+      MINIKUBE_ENABLED: "false"
+    ports:
+      - "8080:8080"
+    # Mount kubeconfig for Kubernetes access from inside the container
+    volumes:
+      - ${USERPROFILE}/.kube:/root/.kube:ro
+    restart: unless-stopped
+
+volumes:
+  devbox-pgdata:

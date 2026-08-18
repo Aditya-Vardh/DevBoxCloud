@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cnad32-platform-ingress
+  namespace: cnad32-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cnad32
+  policyTypes: ["Ingress"]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 3000

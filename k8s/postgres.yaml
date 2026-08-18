@@ -1,0 +1,89 @@
+---
+# PostgreSQL PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devbox-postgres-pvc
+  namespace: devbox
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devbox-postgres
+  namespace: devbox
+  labels:
+    app: devbox-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: devbox-postgres
+  template:
+    metadata:
+      labels:
+        app: devbox-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: devboxdb
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: devbox-postgres-secret
+                  key: username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: devbox-postgres-secret
+                  key: password
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "devbox", "-d", "devboxdb"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: devbox-postgres-pvc
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: devbox-postgres
+  namespace: devbox
+spec:
+  selector:
+    app: devbox-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# PostgreSQL Secret (base64: devbox / devbox123)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: devbox-postgres-secret
+  namespace: devbox
+type: Opaque
+data:
+  username: ZGV2Ym94
+  password: ZGV2Ym94MTIz

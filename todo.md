@@ -1,0 +1,42 @@
+# CNAD32 Delivery TODO
+
+- [x] Inspect the scaffold, supplied specification, existing components, project configuration, and operational constraints.
+- [x] Define the dark dashboard information architecture and reusable domain types.
+- [x] Add database schema and migration for templates, environments, environment events, audit records, and supporting indexes/foreign keys.
+- [x] Seed and expose active Node.js, Python, Go, and Ubuntu environment templates with enforced resource presets.
+- [x] Preserve Manus OAuth and enforce user/admin authorization in backend procedures.
+- [x] Implement server-enforced environment validation and the provisioning-to-running-to-stopped-to-deleted lifecycle state machine.
+- [x] Implement Kubernetes client integration using @kubernetes/client-node with namespace, Deployment, Service, PersistentVolumeClaim, resource limits, probes, network policy, and cleanup.
+- [x] Implement environment APIs for create, list, detail, start, stop, restart, delete, health, logs, metrics, events, audits, and dashboard summaries.
+- [x] Persist real lifecycle events and audit events including created, started, stopped, restarted, deleted, and errors.
+- [x] Build premium dark responsive dashboard pages, protected navigation, empty/loading/error states, environment creation, detail, logs, metrics, events, and settings views.
+- [x] Add protected frontend route structure so authenticated dashboard and administration pages are gated before rendering.
+- [x] Connect every environment action in the UI to the backend and report only confirmed backend/Kubernetes outcomes.
+- [x] Add Docker, Kubernetes deployment manifests, local Kubernetes setup, CI/CD workflow, security controls, and operational documentation.
+- [x] Add unit tests for lifecycle transitions, validation, authorization, and Kubernetes manifest generation.
+- [x] Generate and apply migrations, install dependencies, run type checks, tests, build, UI verification, and Kubernetes integration checks.
+- [ ] Verify Login → Dashboard → Create Environment → Kubernetes Provisioning → Ready → Logs → Metrics → Stop → Start → Restart → Delete → Kubernetes Cleanup end to end.
+- [x] Validate the real Kubernetes provider against the local Minikube kubeconfig/current context without requiring a remote credential.
+- [x] Add a route-level authentication and administrator guard in `App.tsx` before protected pages render.
+- [x] Add automated authorization tests for non-admin and non-owner access rejection.
+- [x] Verify non-owner environment procedure access returns a non-disclosing rejection at the router level.
+- [x] Correct non-apply Kubernetes PATCH requests to omit apply-only options and use the correct patch media type.
+- [x] Verify temporary Minikube environment resources are cleaned up after a PATCH failure and after a successful full lifecycle run.
+- [x] Commit the complete corrected CNAD32 codebase and push it to GitHub repository Aditya-Vardh/DevBoxCloud.
+- [x] Treat an already-deleted temporary namespace as successful verification cleanup and cover the cleanup race with a test.
+- [ ] Exercise and record the authenticated CNAD32 web application flow through creation, logs, metrics, lifecycle actions, and cleanup against Minikube.
+- [ ] Resolve the active Minikube kubeconfig server endpoint through HTTPS without disabling TLS verification, then verify real UI environment creation.
+- [ ] Diagnose and fix the environment record persistence error shown during provisioning, with an actionable server-side failure path.
+- [x] Implement a legitimate local/self-hosted authentication flow while preserving hosted Manus OAuth where configured.
+- [x] Disable analytics cleanly when optional analytics variables are absent and prevent unresolved Vite placeholders from producing requests.
+- [x] Make the development command work in Windows PowerShell without Unix-only environment assignment syntax.
+- [x] Make GitHub repository selection visibly optional throughout the environment wizard and review summary.
+- [ ] Correct Kubernetes resource metadata discovery against the active Minikube kubeconfig without disabling TLS verification.
+- [ ] Verify login, logout, refresh persistence, analytics-disabled startup, optional-repository creation, and Minikube provisioning through the application.
+- [ ] Verify the corrected `/environments/new` provisioning flow creates or reuses the failed same-name environment without a record-creation error.
+- [x] Add router-level coverage for retrying a failed same-name environment through `environment.create`.
+- [x] Diagnose and fix the localhost local-auth button path from mutation request through dashboard redirect, including visible API errors.
+- [x] Verify the local session endpoint, cookie attributes, refresh persistence, logout, and authenticated dashboard navigation against a running localhost server.
+- [ ] Verify the repaired localhost login in a real browser session: click Continue on this computer, confirm dashboard navigation, refresh persistence, and authenticated state.
+- [ ] Verify localhost logout from the authenticated UI clears the session and returns to the login screen.
+- [ ] Perform a restored-project stability pass across the running application, server logs, browser logs, API routes, and remaining real Minikube workflow checks.

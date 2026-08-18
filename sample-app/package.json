@@ -1,0 +1,12 @@
+{
+  "name": "devbox-sample-app",
+  "version": "1.0.0",
+  "description": "Minimal sample application for DevBox end-to-end testing",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
