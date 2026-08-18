@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "devbox.fullname" . }}-backend-svc
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "devbox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  type: NodePort
+  selector:
+    app: {{ include "devbox.fullname" . }}-backend
+  ports:
+    - name: http
+      port: {{ .Values.backend.port }}
+      targetPort: http
+      nodePort: {{ .Values.backend.nodePort }}
+      protocol: TCP

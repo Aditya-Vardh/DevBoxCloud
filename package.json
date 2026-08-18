@@ -12,6 +12,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "k8s:verify": "tsx scripts/verify-kubernetes.mjs",
+    "devbox:verify": "pwsh -File scripts/verify-devbox.ps1",
+    "devbox:verify:skip-k8s": "pwsh -File scripts/verify-devbox.ps1 -SkipK8s",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {

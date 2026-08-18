@@ -1,0 +1,19 @@
+DevBox has been deployed!
+
+Backend is accessible at:
+  NodePort: http://<minikube-ip>:{{ .Values.backend.nodePort }}
+
+To get the Minikube IP:
+  minikube ip
+
+To get the backend URL directly:
+  minikube service {{ include "devbox.fullname" . }}-backend-svc -n {{ .Values.namespace }} --url
+
+To check pod status:
+  kubectl get pods -n {{ .Values.namespace }}
+
+To view backend logs:
+  kubectl logs -n {{ .Values.namespace }} deploy/{{ include "devbox.fullname" . }}-backend -f
+
+To run the frontend locally against this backend:
+  cd frontend && VITE_API_BASE_URL=http://$(minikube ip):{{ .Values.backend.nodePort }} npm run dev

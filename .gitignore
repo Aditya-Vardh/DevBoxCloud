@@ -1,37 +1,53 @@
-<<<<<<< HEAD
-node_modules/
-dist/
-target/
-.env
-.env.*
-!.env.example
-*.log
-.vscode/
-=======
-# Dependencies
+# ─── Node / pnpm ──────────────────────────────────────────────────────────────
 **/node_modules
 .pnpm-store/
+.npm
+.yarn-integrity
+jspm_packages/
+*.tgz
 
-# Build outputs
+# ─── Build outputs ────────────────────────────────────────────────────────────
 dist/
 build/
 *.dist
+.next
+.nuxt
+.cache
+.parcel-cache
+.out
+.storybook-out
 
-# Environment variables
+# ─── Java / Maven ─────────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# ─── Environment variables ────────────────────────────────────────────────────
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
-# IDE and editor files
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ─── IDE / Editor ─────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+*.iml
 *.swp
 *.swo
 *~
 
-# OS generated files
+# ─── OS generated ─────────────────────────────────────────────────────────────
 .DS_Store
 .DS_Store?
 ._*
@@ -40,86 +56,35 @@ build/
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# ─── TypeScript ───────────────────────────────────────────────────────────────
+*.tsbuildinfo
 
-# Runtime data
-pids
+# ─── Coverage ─────────────────────────────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output
+
+# ─── Runtime / temp ───────────────────────────────────────────────────────────
+pids/
 *.pid
 *.seed
 *.pid.lock
 *.bak
-
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# Next.js build output
-.next
-
-# Nuxt.js build / generate output
-.nuxt
-
-# Gatsby files
-.cache/
-
-# Storybook build outputs
-.out
-.storybook-out
-
-# Temporary folders
 tmp/
 temp/
 
-# Database
+# ─── Database / migrations ────────────────────────────────────────────────────
 *.db
 *.sqlite
 *.sqlite3
 
-# Webdev artifacts (checkpoint zips, migrations, etc.)
+# ─── Misc tooling ─────────────────────────────────────────────────────────────
+.eslintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.node_repl_history
 .webdev/
-
-# Manus version file (auto-generated, not part of source)
-client/public/__manus__/version.json
 .project-config.json
->>>>>>> 86984c4683a3bf11e91a1b483e98afd2be109a70
+client/public/__manus__/version.json

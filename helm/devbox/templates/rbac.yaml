@@ -1,0 +1,32 @@
+---
+# ClusterRole: backend needs to manage Deployments, Services, Pods, and Namespaces
+# for any workspace application it deploys across the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "devbox.fullname" . }}-role
+  labels:
+    {{- include "devbox.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "pods", "pods/log", "namespaces"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "devbox.fullname" . }}-rolebinding
+  labels:
+    {{- include "devbox.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "devbox.fullname" . }}-sa
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "devbox.fullname" . }}-role
+  apiGroup: rbac.authorization.k8s.io
