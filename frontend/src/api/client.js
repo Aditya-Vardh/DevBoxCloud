@@ -76,3 +76,24 @@ export const healthApi = {
   basic:        () => get('/health'),
   dependencies: () => get('/health/dependencies'),
 }
+
+// ── Templates ─────────────────────────────────────────────────────────────────
+export const templateApi = {
+  list:  ()   => get('/templates'),
+  get:   (id) => get(`/templates/${id}`),
+}
+
+// ── Environments ──────────────────────────────────────────────────────────────
+export const environmentApi = {
+  listByWorkspace: (wsId)       => get(`/workspaces/${wsId}/environments`),
+  get:             (id)         => get(`/environments/${id}`),
+  create:          (wsId, data) => post(`/workspaces/${wsId}/environments`, data),
+  delete:          (id)         => del(`/environments/${id}`),
+
+  start:  (id)         => post(`/environments/${id}/start`),
+  stop:   (id)         => post(`/environments/${id}/stop`),
+
+  status: (id)         => get(`/environments/${id}/status`),
+  pods:   (id)         => get(`/environments/${id}/pods`),
+  logs:   (id, lines)  => get(`/environments/${id}/logs?lines=${lines ?? 200}`),
+}

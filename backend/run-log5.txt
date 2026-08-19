@@ -1,0 +1,63 @@
+﻿
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.0)
+
+2026-08-18T23:09:56.565+05:30  INFO 10744 --- [           main] com.devbox.backend.BackendApplication    : Starting BackendApplication v0.0.1-SNAPSHOT using Java 21.0.12 with PID 10744 (D:\CNAD\cnad_project\devbox-cloud\backend\target\backend-0.0.1-SNAPSHOT.jar started by adity in D:\CNAD\cnad_project\devbox-cloud\backend)
+2026-08-18T23:09:56.577+05:30  INFO 10744 --- [           main] com.devbox.backend.BackendApplication    : No active profile set, falling back to 1 default profile: "default"
+2026-08-18T23:09:58.789+05:30  INFO 10744 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-08-18T23:09:58.907+05:30  INFO 10744 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 101 ms. Found 4 JPA repository interfaces.
+2026-08-18T23:10:00.806+05:30  INFO 10744 --- [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-08-18T23:10:00.842+05:30  INFO 10744 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-08-18T23:10:00.842+05:30  INFO 10744 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-08-18T23:10:00.907+05:30  INFO 10744 --- [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4167 ms
+2026-08-18T23:10:01.797+05:30  INFO 10744 --- [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-08-18T23:10:02.004+05:30  INFO 10744 --- [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.1.Final
+2026-08-18T23:10:02.707+05:30  INFO 10744 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-08-18T23:10:02.762+05:30  INFO 10744 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-08-18T23:10:03.102+05:30  INFO 10744 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@3eadad14
+2026-08-18T23:10:03.105+05:30  INFO 10744 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-08-18T23:10:03.164+05:30  WARN 10744 --- [           main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-08-18T23:10:03.207+05:30  INFO 10744 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5433/devboxdb]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 16.15
+	Default catalog/schema: devboxdb/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-08-18T23:10:05.084+05:30  INFO 10744 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-08-18T23:10:05.239+05:30  INFO 10744 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-08-18T23:10:05.364+05:30  INFO 10744 --- [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-08-18T23:10:06.912+05:30  INFO 10744 --- [           main] c.d.b.service.KubernetesClientService    : Kubernetes client initialized (using kubeconfig)
+2026-08-18T23:10:08.336+05:30  INFO 10744 --- [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-08-18T23:10:08.536+05:30  WARN 10744 --- [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-08-18T23:10:08.540+05:30  INFO 10744 --- [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-18T23:10:08.549+05:30  INFO 10744 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-08-18T23:10:08.557+05:30  INFO 10744 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-08-18T23:10:08.587+05:30  INFO 10744 --- [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-08-18T23:10:08.614+05:30 ERROR 10744 --- [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+

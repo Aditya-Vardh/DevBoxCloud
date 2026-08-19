@@ -32,7 +32,7 @@ public class DeploymentService {
 
     private final ApplicationService applicationService;
     private final ApplicationRepository applicationRepository;
-    private final EnvironmentService environmentService;
+    private final SystemHealthService environmentService;
     private final KubernetesClientService kubernetesClientService;
 
     @Value("${devbox.kubernetes.namespace:devbox}")
@@ -655,3 +655,4 @@ public class DeploymentService {
         };
     }
 }
+

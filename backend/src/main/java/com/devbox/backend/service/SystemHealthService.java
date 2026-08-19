@@ -10,12 +10,15 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Checks external environment: Docker, kubectl, Kubernetes cluster, Minikube.
+ * Checks external environment health: Docker, kubectl, Kubernetes cluster, Minikube.
  * Every check is non-fatal — results are returned to the caller who decides.
+ *
+ * Renamed from EnvironmentService to avoid name clash with the new
+ * EnvironmentProvisioningService that manages Environment JPA entities.
  */
 @Service
 @Slf4j
-public class EnvironmentService {
+public class SystemHealthService {
 
     @Value("${devbox.kubernetes.namespace:devbox}")
     private String namespace;
@@ -24,8 +27,8 @@ public class EnvironmentService {
     private boolean minikubeEnabled;
 
     /**
-     * Returns a map of component → status string.
-     * Values are either "ok" or an error description.
+     * Returns a map of component name → status string.
+     * Values start with "ok:" on success or "error:" on failure.
      */
     public Map<String, Object> checkAll() {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -56,13 +59,11 @@ public class EnvironmentService {
     }
 
     public boolean isKubernetesAvailable() {
-        String result = checkKubernetesCluster();
-        return result.startsWith("ok:");
+        return checkKubernetesCluster().startsWith("ok:");
     }
 
     public boolean isDockerAvailable() {
-        String result = checkDocker();
-        return result.startsWith("ok:");
+        return checkDocker().startsWith("ok:");
     }
 
     private String runCommand(String... cmd) {
@@ -78,9 +79,11 @@ public class EnvironmentService {
             String output = new String(p.getInputStream().readAllBytes()).trim();
             int exitCode = p.exitValue();
             if (exitCode == 0) {
-                return "ok: " + (output.isEmpty() ? "available" : output.lines().findFirst().orElse("available"));
+                return "ok: " + (output.isEmpty() ? "available"
+                        : output.lines().findFirst().orElse("available"));
             } else {
-                return "error: exit=" + exitCode + " " + output.lines().findFirst().orElse("");
+                return "error: exit=" + exitCode + " "
+                        + output.lines().findFirst().orElse("");
             }
         } catch (IOException e) {
             return "error: " + cmd[0] + " not found or not accessible (" + e.getMessage() + ")";

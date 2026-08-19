@@ -1,6 +1,6 @@
 package com.devbox.backend.controller;
 
-import com.devbox.backend.service.EnvironmentService;
+import com.devbox.backend.service.SystemHealthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class HealthController {
 
-    private final EnvironmentService environmentService;
+    private final SystemHealthService environmentService;
 
     /** Basic liveness: GET /api/health */
     @GetMapping("/health")
@@ -36,3 +36,4 @@ public class HealthController {
         return ResponseEntity.ok(result);
     }
 }
+
