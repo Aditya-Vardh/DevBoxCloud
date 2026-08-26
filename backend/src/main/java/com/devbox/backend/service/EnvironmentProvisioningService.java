@@ -241,8 +241,14 @@ public class EnvironmentProvisioningService {
             }
 
             // Resolve access URL once running — may not have been set on create
-            // (e.g. service was created before nodePort was captured)
-            if (derived == EnvironmentStatus.RUNNING && env.getAccessUrl() == null) {
+            // (e.g. service was created before nodePort was captured).
+            // Also re-resolve if the stored URL is the unreachable node-IP form
+            // (192.168.x.x) from a previous run before the tunnel logic was added.
+            boolean needsUrlResolution = derived == EnvironmentStatus.RUNNING
+                    && (env.getAccessUrl() == null
+                        || env.getAccessUrl().contains("192.168.")
+                        || env.getAccessUrl().contains("172."));
+            if (needsUrlResolution) {
                 resolveAccessUrl(env);
                 changed = true;
             }
@@ -548,7 +554,80 @@ public class EnvironmentProvisioningService {
     }
 
     private void resolveAccessUrl(Environment env) {
-        if (!minikubeEnabled || env.getNodePort() == null) return;
+        if (!minikubeEnabled || env.getK8sServiceName() == null) return;
+        try {
+            // On Minikube with the Docker driver on Windows, the node IP (192.168.49.x)
+            // is not reachable from the Windows host. `minikube service --url` creates
+            // an SSH tunnel from 127.0.0.1:<ephemeral-port> → NodePort and returns
+            // the reachable localhost URL. The underlying ssh process persists after
+            // the minikube command exits, keeping the tunnel alive.
+            ProcessBuilder pb = new ProcessBuilder(
+                    "minikube", "service", env.getK8sServiceName(),
+                    "-n", defaultNamespace, "--url");
+            pb.redirectErrorStream(false);   // keep stderr separate — it has the "terminal" warning
+            Process p = pb.start();
+
+            // Read stdout (the URL) and stderr (warnings) independently
+            // so neither stream blocks the other
+            final StringBuilder urlBuf = new StringBuilder();
+            Thread stdoutReader = new Thread(() -> {
+                try (java.io.BufferedReader r = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        line = line.trim();
+                        if (line.startsWith("http")) {
+                            urlBuf.append(line);
+                        }
+                    }
+                } catch (Exception ignored) {}
+            });
+            Thread stderrReader = new Thread(() -> {
+                try (java.io.BufferedReader r = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getErrorStream()))) {
+                    while (r.readLine() != null) { /* drain — suppress "terminal needs to be open" */ }
+                } catch (Exception ignored) {}
+            });
+            stdoutReader.start();
+            stderrReader.start();
+
+            // Give the tunnel time to establish and print the URL.
+            // minikube service --url prints the URL quickly then keeps running.
+            // We wait up to 10 s for output then let the process keep running in the
+            // background (it owns the ssh tunnel we just obtained).
+            boolean urlReceived = false;
+            long deadline = System.currentTimeMillis() + 10_000;
+            while (System.currentTimeMillis() < deadline) {
+                if (urlBuf.length() > 0) { urlReceived = true; break; }
+                Thread.sleep(100);
+            }
+
+            if (urlReceived) {
+                String url = urlBuf.toString().trim();
+                if (url.startsWith("http://127.0.0.1") || url.startsWith("http://localhost")) {
+                    env.setAccessUrl(url);
+                    log.info("Resolved workspace access URL via minikube tunnel: {}", url);
+                    return;
+                }
+            }
+
+            // minikube service --url did not return a usable URL — fall back to node IP
+            log.debug("minikube service --url did not return a 127.0.0.1 URL; falling back to node IP");
+            fallbackToNodeIpUrl(env);
+
+        } catch (Exception e) {
+            log.debug("Could not resolve Minikube tunnel URL for {}: {}", env.getName(), e.getMessage());
+            fallbackToNodeIpUrl(env);
+        }
+    }
+
+    /**
+     * Fallback: build the access URL from the Minikube node IP + NodePort.
+     * This is unreachable on Windows Docker driver but is still useful as metadata
+     * (e.g., for non-Windows hosts or future direct network access).
+     */
+    private void fallbackToNodeIpUrl(Environment env) {
+        if (env.getNodePort() == null) return;
         try {
             ProcessBuilder pb = new ProcessBuilder("minikube", "ip");
             pb.redirectErrorStream(true);
@@ -559,7 +638,7 @@ public class EnvironmentProvisioningService {
                 env.setAccessUrl("http://" + ip + ":" + env.getNodePort());
             }
         } catch (Exception e) {
-            log.debug("Could not resolve Minikube URL: {}", e.getMessage());
+            log.debug("Could not get minikube ip: {}", e.getMessage());
         }
     }
 
@@ -575,6 +654,11 @@ public class EnvironmentProvisioningService {
                 Integer np = svc.getSpec().getPorts().get(0).getNodePort();
                 if (np != null && !np.equals(env.getNodePort())) {
                     env.setNodePort(np);
+                    // NodePort changed — force URL re-resolution
+                    env.setAccessUrl(null);
+                    resolveAccessUrl(env);
+                } else if (np != null && env.getAccessUrl() == null) {
+                    // Port unchanged but URL was never resolved (e.g. minikube wasn't ready)
                     resolveAccessUrl(env);
                 }
             }
