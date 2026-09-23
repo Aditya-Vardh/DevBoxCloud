@@ -2,7 +2,7 @@ import { OAUTH_STATE_COOKIE, encodeOAuthState } from "@shared/const";
 
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
-// Start the Manus OAuth login. Call this from an event handler or effect at the
+// Start the OAuth login. Call this from an event handler or effect at the
 // moment you want to navigate, e.g. `onClick={() => startLogin()}`.
 //
 // It has SIDE EFFECTS — it mints a one-time nonce, writes the __Host- state
@@ -17,7 +17,7 @@ export const startLogin = () => {
   const appId = import.meta.env.VITE_APP_ID;
   if (!oauthPortalUrl || !appId) {
     throw new Error(
-      "Hosted Manus OAuth is not configured for this deployment."
+      "Hosted OAuth is not configured for this deployment."
     );
   }
   const redirectUri = `${window.location.origin}/api/oauth/callback`;

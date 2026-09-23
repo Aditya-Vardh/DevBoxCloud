@@ -79,10 +79,11 @@ export function LoginScreen() {
         </h1>
         <p className="mt-4 text-sm leading-6 text-slate-400">
           {isLocal
-            ? "This localhost development instance creates a signed session for the local operator. Hosted deployments continue to use Manus OAuth."
+            ? "This localhost development instance creates a signed session for the local operator. Hosted deployments use OAuth for authentication."
             : hostedOAuthConfigured
-              ? "Authenticate with your Manus account to create and operate isolated Kubernetes-backed workspaces."
-              : "Hosted Manus OAuth is not configured for this deployment. Run the development server on localhost to use the local development session."}
+              ? "Authenticate with your account to create and operate isolated Kubernetes-backed workspaces."
+              : "Hosted OAuth is not configured for this deployment. Run the development server on localhost to use the local development session."}
+
         </p>
         <Button
           onClick={() => (isLocal ? localLogin.mutate() : startLogin())}
@@ -98,7 +99,8 @@ export function LoginScreen() {
             : isLocal
               ? "Continue on this computer"
               : hostedOAuthConfigured
-                ? "Continue with Manus"
+                ? "Continue"
+
                 : "Hosted OAuth unavailable"}
           <ChevronRight className="ml-1 h-4 w-4" />
         </Button>

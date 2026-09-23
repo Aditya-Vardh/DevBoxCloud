@@ -95,6 +95,14 @@ public class Template {
     @Column(name = "startup_command", columnDefinition = "TEXT")
     private String startupCommand;
 
+    /**
+     * Newline-separated list of quick-start commands shown in the terminal welcome
+     * banner and on the environment detail page.
+     * Example: "python3 --version\npip3 --version\npython3 -m venv .venv"
+     */
+    @Column(name = "quick_start_commands", columnDefinition = "TEXT")
+    private String quickStartCommands;
+
     /** Whether this template is selectable by users */
     @Column(name = "active", nullable = false)
     @Builder.Default

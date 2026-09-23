@@ -3,44 +3,58 @@ import { useParams, Link } from 'react-router-dom'
 import { environmentApi } from '../api/client'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { Spinner } from '../components/Spinner'
+import { StatusBadge } from '../components/StatusBadge'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Button } from '../components/Button'
 import { useAsync } from '../hooks/useAsync'
+import { C, R, SHADOW, TEMPLATE_ACCENT, FONT } from '../theme'
 
 const POLL_INTERVAL = 5000
 
-const STATUS_COLOR = {
-  PENDING:      '#6b7280',
-  PROVISIONING: '#2563eb',
-  RUNNING:      '#16a34a',
-  STOPPED:      '#6b7280',
-  FAILED:       '#dc2626',
-  DELETING:     '#9333ea',
-  DELETED:      '#d1d5db',
+function isReady(env) {
+  return env && env.status === 'RUNNING' && !!env.accessUrl
 }
 
-function EnvBadge({ status }) {
-  return (
-    <span style={{
-      display: 'inline-block', padding: '3px 10px', borderRadius: 5,
-      fontSize: 13, fontWeight: 700, color: '#fff',
-      background: STATUS_COLOR[status] || '#6b7280',
-      letterSpacing: '0.04em',
-    }}>
-      {status}
-    </span>
-  )
+/**
+ * Returns the URL for the noVNC desktop page.
+ * Prefers the pre-built desktopUrl from the backend; falls back to constructing it.
+ */
+function desktopHref(env) {
+  if (!env?.accessUrl) return '#'
+  if (env.desktopUrl) return env.desktopUrl
+  return env.accessUrl.replace(/\/+$/, '') + '/desktop/vnc.html?autoconnect=true&path=websockify'
+}
+
+/**
+ * Returns the URL for the browser terminal (ttyd via /terminal/).
+ * Prefers the pre-built terminalUrl from the backend; falls back to constructing it.
+ */
+function terminalHref(env) {
+  if (!env?.accessUrl) return '#'
+  if (env.terminalUrl) return env.terminalUrl
+  return env.accessUrl.replace(/\/+$/, '') + '/terminal/'
+}
+
+/**
+ * Returns the workspace landing page URL (/).
+ * This is always the base accessUrl — it shows the template-specific HTML page.
+ */
+function workspaceHref(env) {
+  if (!env?.accessUrl) return '#'
+  return env.accessUrl
 }
 
 export function EnvironmentDetailPage() {
   const { envId } = useParams()
 
-  const [env, setEnv]             = useState(null)
-  const [pods, setPods]           = useState([])
-  const [logs, setLogs]           = useState('')
-  const [logLines, setLogLines]   = useState(200)
-  const [activeTab, setActiveTab] = useState('overview')
-  const [loading, setLoading]     = useState(true)
-  const [loadError, setLoadError] = useState(null)
+  const [env, setEnv]               = useState(null)
+  const [pods, setPods]             = useState([])
+  const [logs, setLogs]             = useState('')
+  const [logLines, setLogLines]     = useState(200)
+  const [activeTab, setActiveTab]   = useState('overview')
+  const [showTech, setShowTech]     = useState(false)
+  const [loading, setLoading]       = useState(true)
+  const [loadError, setLoadError]   = useState(null)
   const [showDelete, setShowDelete] = useState(false)
   const pollRef = useRef(null)
 
@@ -54,64 +68,46 @@ export function EnvironmentDetailPage() {
     return () => clearInterval(pollRef.current)
   }, [envId])
 
-  // Auto-poll while provisioning
   useEffect(() => {
     clearInterval(pollRef.current)
-    if (env && ['PROVISIONING', 'DELETING'].includes(env.status)) {
-      pollRef.current = setInterval(refreshStatus, POLL_INTERVAL)
-    }
+    if (!env) return
+    const shouldPoll = ['PROVISIONING', 'DELETING'].includes(env.status)
+      || (env.status === 'RUNNING' && !env.accessUrl)
+    if (shouldPoll) pollRef.current = setInterval(refreshStatus, POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
-  }, [env?.status])
+  }, [env?.status, env?.accessUrl])
 
   async function loadEnv() {
     setLoading(true)
     setLoadError(null)
-    try {
-      const data = await environmentApi.status(envId)
-      setEnv(data)
-    } catch (e) {
-      setLoadError(e.message)
-    } finally {
-      setLoading(false)
-    }
+    try { setEnv(await environmentApi.status(envId)) }
+    catch (e) { setLoadError(e.message) }
+    finally { setLoading(false) }
   }
 
   async function refreshStatus() {
-    try {
-      const data = await environmentApi.status(envId)
-      setEnv(data)
-    } catch (_) {}
+    try { setEnv(await environmentApi.status(envId)) } catch (_) {}
   }
 
   async function handleStart() {
     const res = await runStart(environmentApi.start(envId))
     if (res) setEnv(res)
   }
-
   async function handleStop() {
     const res = await runStop(environmentApi.stop(envId))
     if (res) setEnv(res)
   }
-
   async function handleDelete() {
     setShowDelete(false)
     await runDelete(environmentApi.delete(envId))
-    // Navigate back to workspace
-    if (env?.workspaceId) {
-      window.location.href = `/workspaces/${env.workspaceId}`
-    }
+    if (env?.workspaceId) window.location.href = `/workspaces/${env.workspaceId}`
   }
-
   async function fetchLogs() {
     const res = await runLogs(environmentApi.logs(envId, logLines))
     if (res !== null) setLogs(res)
   }
-
   async function fetchPods() {
-    try {
-      const data = await environmentApi.pods(envId)
-      setPods(data)
-    } catch (_) {}
+    try { setPods(await environmentApi.pods(envId)) } catch (_) {}
   }
 
   useEffect(() => {
@@ -119,96 +115,156 @@ export function EnvironmentDetailPage() {
     if (activeTab === 'pods') fetchPods()
   }, [activeTab])
 
-  if (loading) return <div style={{ padding: 32 }}><Spinner size={24} /></div>
-  if (loadError) return <div style={{ padding: 24 }}><ErrorMessage error={loadError} /></div>
+  if (loading) return (
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px' }}>
+      <div className="skeleton" style={{ height: 20, width: 220, marginBottom: 24 }} />
+      <div className="skeleton" style={{ height: 120, marginBottom: 16 }} />
+      <div className="skeleton" style={{ height: 200 }} />
+    </div>
+  )
+
+  if (loadError) return (
+    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px' }}>
+      <ErrorMessage error={loadError} />
+    </div>
+  )
   if (!env) return null
 
-  const canStart  = ['STOPPED', 'FAILED', 'PROVISIONING'].includes(env.status)
-  const canStop   = env.status === 'RUNNING' || env.status === 'PROVISIONING'
-  const isRunning = env.status === 'RUNNING'
+  const accent = TEMPLATE_ACCENT[env.templateId] || TEMPLATE_ACCENT.ubuntu
+  const ready   = isReady(env)
+  const canStart = ['STOPPED', 'FAILED', 'PROVISIONING'].includes(env.status)
+  const canStop  = env.status === 'RUNNING' || env.status === 'PROVISIONING'
+
+  // Quick-start commands from backend
+  const quickStartCmds = env.templateQuickStart
+    ? env.templateQuickStart.split('\n').filter(Boolean)
+    : []
 
   return (
-    <div style={S.page}>
+    <div className="page-enter" style={S.page}>
+
       {/* Breadcrumb */}
       <div style={S.breadcrumb}>
-        <Link to="/" style={S.link}>Workspaces</Link>
-        {' / '}
-        <Link to={`/workspaces/${env.workspaceId}`} style={S.link}>{env.workspaceName}</Link>
-        {' / '}
-        <span style={{ fontWeight: 600 }}>{env.name}</span>
+        <Link to="/" style={S.bcLink}>Workspaces</Link>
+        <span style={S.bcSep}>/</span>
+        <Link to={`/workspaces/${env.workspaceId}`} style={S.bcLink}>{env.workspaceName}</Link>
+        <span style={S.bcSep}>/</span>
+        <span style={{ color: C.body, fontWeight: 500 }}>{env.name}</span>
       </div>
 
-      {/* Header */}
-      <div style={S.header}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-            <span style={{ fontSize: 28 }}>{env.templateIcon}</span>
-            <h1 style={S.title}>{env.name}</h1>
-            <EnvBadge status={env.status} />
+      {/* ── Identity panel ────────────────────────────────────────────────────── */}
+      <div style={{ ...S.identityPanel, borderTopColor: accent.color }}>
+        <div style={S.identityLeft}>
+          <div style={{
+            width: 52, height: 52, borderRadius: R.lg, flexShrink: 0,
+            background: accent.bg, border: `2px solid ${accent.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 28,
+          }}>
+            {env.templateIcon}
           </div>
-          {env.description && <p style={S.desc}>{env.description}</p>}
-          <div style={S.meta}>
-            {env.templateName} &nbsp;·&nbsp;
-            CPU: {env.cpuRequest} &nbsp;·&nbsp;
-            Memory: {env.memoryRequest} &nbsp;·&nbsp;
-            Storage: {env.storageSize}
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h1 style={S.envName}>{env.name}</h1>
+              <StatusBadge status={env.status} />
+            </div>
+            <div style={S.templateLabel}>{env.templateName}</div>
+            <div style={S.metaRow}>
+              <MetaChip>{env.cpuRequest} CPU</MetaChip>
+              <MetaChip>{env.memoryRequest} RAM</MetaChip>
+              <MetaChip>{env.storageSize} Disk</MetaChip>
+            </div>
           </div>
         </div>
 
-        {/* Open Workspace button — primary CTA when running */}
-        {isRunning && env.accessUrl && (
-          <a href={env.accessUrl} target="_blank" rel="noreferrer" style={S.btnOpen}>
-            Open Workspace ↗
-          </a>
-        )}
+        {/* CTAs */}
+        <div style={S.ctaCol}>
+          {ready ? (
+            <>
+              <a href={workspaceHref(env)} target="_blank" rel="noreferrer" style={{
+                ...S.ctaBtn, background: accent.color, borderColor: accent.color,
+              }}>
+                ⬡ Open Workspace ↗
+              </a>
+              <a href={desktopHref(env)} target="_blank" rel="noreferrer" style={{
+                ...S.ctaBtn, background: C.ink, borderColor: C.ink, fontSize: 12,
+              }}>
+                🖥 Desktop ↗
+              </a>
+              <a href={terminalHref(env)} target="_blank" rel="noreferrer" style={{
+                ...S.ctaBtn, background: '#1e293b', borderColor: '#334155', fontSize: 12,
+              }}>
+                💻 Terminal ↗
+              </a>
+            </>
+          ) : env.status === 'PROVISIONING' ? (
+            <div style={S.startingIndicator}>
+              <Spinner size={14} color={C.amber} />
+              <span>Starting workspace…</span>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* Auto-provisioning notice */}
+      {/* ── Status banners ─────────────────────────────────────────────────────── */}
       {env.status === 'PROVISIONING' && (
-        <div style={S.provisioningBanner}>
-          <Spinner size={14} />
-          <span>Provisioning Kubernetes resources… This usually takes 15-60 seconds.</span>
+        <div style={S.banner('info')}>
+          <Spinner size={13} color={C.amberText} />
+          <span>
+            Launching VNC desktop, workspace gateway, and nginx — takes <strong>30–75 seconds</strong>.
+            Auto-refreshing every {POLL_INTERVAL / 1000}s.
+          </span>
+        </div>
+      )}
+      {env.status === 'RUNNING' && !env.accessUrl && (
+        <div style={S.banner('info')}>
+          <Spinner size={13} color={C.amberText} />
+          <span>Pod is <strong>Ready</strong> — establishing port-forward tunnel…</span>
+        </div>
+      )}
+      {ready && (
+        <div style={S.banner('success')}>
+          <span style={{ color: C.green, fontWeight: 700 }}>✓</span>
+          Workspace ready —{' '}
+          <a href={workspaceHref(env)} target="_blank" rel="noreferrer"
+            style={{ color: C.greenText, fontWeight: 600 }}>
+            Open workspace ↗
+          </a>
+          {' '}· Gateway: <code style={S.gatewayCode}>{env.accessUrl}</code>
+        </div>
+      )}
+      {env.failureReason && (
+        <div style={S.banner('error')}>
+          <strong>Failed:</strong> {env.failureReason}
         </div>
       )}
 
-      {/* Failure reason */}
-      {env.failureReason && (
-        <div style={S.failBanner}>{env.failureReason}</div>
-      )}
-
-      {/* Action bar */}
+      {/* ── Action bar ─────────────────────────────────────────────────────────── */}
       <div style={S.actionBar}>
-        <ActionBtn label="Start"  loading={starting} onClick={handleStart}
-          disabled={!canStart || starting} color="#16a34a" />
-        <ActionBtn label="Stop"   loading={stopping} onClick={handleStop}
-          disabled={!canStop  || stopping} color="#6b7280" />
-        <ActionBtn label="Refresh status" loading={false} onClick={refreshStatus}
-          disabled={false} color="#2563eb" />
-        <button
-          style={{ ...S.btnDanger, marginLeft: 'auto' }}
-          onClick={() => setShowDelete(true)}
-          disabled={deleting}
-        >
-          {deleting ? <Spinner size={13} /> : 'Delete Environment'}
-        </button>
+        <Button variant="primary" loading={starting} loadingLabel="Starting…"
+          disabled={!canStart || starting} onClick={handleStart}
+          style={{ background: canStart && !starting ? C.green : undefined }}>
+          Start
+        </Button>
+        <Button variant="secondary" loading={stopping} loadingLabel="Stopping…"
+          disabled={!canStop || stopping} onClick={handleStop}>
+          Stop
+        </Button>
+        <Button variant="ghost" onClick={refreshStatus}>
+          ↻ Refresh
+        </Button>
+        <Button variant="danger" style={{ marginLeft: 'auto' }}
+          onClick={() => setShowDelete(true)} disabled={deleting}>
+          {deleting ? <><Spinner size={13} /> Deleting…</> : 'Delete Environment'}
+        </Button>
       </div>
 
       <ErrorMessage error={startError || stopError || deleteError} />
 
-      {/* URL info when running but no accessUrl yet */}
-      {isRunning && !env.accessUrl && (
-        <div style={S.infoBox}>
-          Environment is running. NodePort: {env.nodePort ?? '(assigned soon)'}
-          <br />
-          <small style={{ color: '#6b7280' }}>
-            Run <code>minikube ip</code> to get the IP, then open http://&lt;ip&gt;:{env.nodePort}.
-          </small>
-        </div>
-      )}
-
-      {/* Tabs */}
+      {/* ── Tabs ───────────────────────────────────────────────────────────────── */}
       <div style={S.tabs}>
-        {['overview', 'pods', 'logs'].map(tab => (
+        {['overview', 'quick start', 'pods', 'logs'].map(tab => (
           <button key={tab}
             style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
             onClick={() => setActiveTab(tab)}>
@@ -217,19 +273,19 @@ export function EnvironmentDetailPage() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div style={S.tabContent}>
-        {activeTab === 'overview' && <OverviewTab env={env} />}
-        {activeTab === 'pods'     && <PodsTab pods={pods} onRefresh={fetchPods} />}
-        {activeTab === 'logs'     && (
-          <LogsTab logs={logs} loading={logsLoading}
-            logLines={logLines} setLogLines={setLogLines} onFetch={fetchLogs} />
-        )}
+        {activeTab === 'overview'     && <OverviewTab env={env} accent={accent} showTech={showTech} setShowTech={setShowTech} />}
+        {activeTab === 'quick start'  && <QuickStartTab cmds={quickStartCmds} templateName={env.templateName} />}
+        {activeTab === 'pods'         && <PodsTab pods={pods} onRefresh={fetchPods} />}
+        {activeTab === 'logs'         && <LogsTab logs={logs} loading={logsLoading}
+                                           logLines={logLines} setLogLines={setLogLines} onFetch={fetchLogs} />}
       </div>
 
       {showDelete && (
         <ConfirmDialog
-          message={`Delete environment "${env.name}"? This permanently removes all Kubernetes resources and storage.`}
+          title={`Delete "${env.name}"?`}
+          message="This permanently removes the Kubernetes Deployment, Service, and PVC. All data in /workspace will be lost."
+          confirmLabel="Delete Environment"
           onConfirm={handleDelete}
           onCancel={() => setShowDelete(false)}
         />
@@ -238,43 +294,99 @@ export function EnvironmentDetailPage() {
   )
 }
 
-// ── Sub-tabs ──────────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-function OverviewTab({ env }) {
+function OverviewTab({ env, accent, showTech, setShowTech }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* Workspace info */}
+      <Section title="Workspace">
+        <InfoGrid>
+          <InfoRow label="Environment" value={env.name} mono />
+          <InfoRow label="Template" value={`${env.templateIcon} ${env.templateName}`} />
+          <InfoRow label="Category" value={env.templateCategory} />
+          <InfoRow label="Status" value={<StatusBadge status={env.status} />} />
+          <InfoRow label="Started" value={env.startedAt ? fmtDate(env.startedAt) : '—'} />
+          <InfoRow label="Stopped" value={env.stoppedAt ? fmtDate(env.stoppedAt) : '—'} />
+        </InfoGrid>
+      </Section>
+
+      {/* Access */}
+      {(env.accessUrl || env.desktopUrl || env.terminalUrl) && (
+        <Section title="Access URLs">
+          <InfoGrid>
+            {env.accessUrl   && <InfoRow label="Workspace"  value={<UrlLink href={env.accessUrl}  label="Landing page (/ )" />} />}
+            {env.terminalUrl && <InfoRow label="Terminal"   value={<UrlLink href={env.terminalUrl} label="/terminal/" />} />}
+            {env.desktopUrl  && <InfoRow label="Desktop"    value={<UrlLink href={env.desktopUrl}  label="/desktop/vnc.html" />} />}
+          </InfoGrid>
+        </Section>
+      )}
+
+      {/* Resources */}
+      <Section title="Resources">
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <ResourceCard label="CPU" value={env.cpuRequest} accent={accent} />
+          <ResourceCard label="Memory" value={env.memoryRequest} accent={accent} />
+          <ResourceCard label="Storage" value={env.storageSize} accent={accent} />
+        </div>
+      </Section>
+
+      {/* Technical details — collapsible */}
+      <div style={{
+        border: `1px solid ${C.border}`, borderRadius: R.lg, overflow: 'hidden',
+      }}>
+        <button
+          style={S.techToggle}
+          onClick={() => setShowTech(!showTech)}
+          aria-expanded={showTech}
+        >
+          <span style={{ fontWeight: 600, fontSize: 13, color: C.body }}>Technical Details</span>
+          <span style={{ color: C.faint, fontSize: 12 }}>{showTech ? '▲ hide' : '▼ show'}</span>
+        </button>
+        {showTech && (
+          <div style={{ padding: '0 16px 16px', background: C.bgSurface }}>
+            <InfoGrid>
+              <InfoRow label="ID"         value={env.id}                 mono />
+              <InfoRow label="Namespace"  value={env.k8sNamespace}       mono />
+              <InfoRow label="Deployment" value={env.k8sDeploymentName}  mono />
+              <InfoRow label="Service"    value={env.k8sServiceName}     mono />
+              <InfoRow label="PVC"        value={env.k8sPvcName}         mono />
+              <InfoRow label="NodePort"   value={env.nodePort ?? '—'}    />
+              <InfoRow label="Created"    value={fmtDate(env.createdAt)} />
+              <InfoRow label="Updated"    value={fmtDate(env.updatedAt)} />
+            </InfoGrid>
+          </div>
+        )}
+      </div>
+
+    </div>
+  )
+}
+
+function QuickStartTab({ cmds, templateName }) {
+  if (!cmds || cmds.length === 0) {
+    return <p style={{ color: C.muted, fontSize: 14 }}>No quick-start commands defined for this template.</p>
+  }
   return (
     <div>
-      <h3 style={S.sectionTitle}>Environment Details</h3>
-      <table style={S.detailTable}>
-        <tbody>
-          {[
-            ['ID',              env.id],
-            ['Template',        `${env.templateIcon} ${env.templateName}`],
-            ['Status',          env.status],
-            ['CPU Request',     env.cpuRequest],
-            ['Memory Request',  env.memoryRequest],
-            ['Storage',         env.storageSize],
-            ['Namespace',       env.k8sNamespace],
-            ['Deployment',      env.k8sDeploymentName],
-            ['Service',         env.k8sServiceName],
-            ['PVC',             env.k8sPvcName],
-            ['NodePort',        env.nodePort ?? '—'],
-            ['Access URL',      env.accessUrl ?? '—'],
-            ['Created',         new Date(env.createdAt).toLocaleString()],
-            ['Updated',         new Date(env.updatedAt).toLocaleString()],
-            ['Started',         env.startedAt ? new Date(env.startedAt).toLocaleString() : '—'],
-            ['Stopped',         env.stoppedAt ? new Date(env.stoppedAt).toLocaleString() : '—'],
-          ].map(([k, v]) => (
-            <tr key={k}>
-              <td style={S.dtKey}>{k}</td>
-              <td style={S.dtVal}>
-                {k === 'Access URL' && env.accessUrl
-                  ? <a href={env.accessUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>{env.accessUrl}</a>
-                  : (v ?? '—')}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: C.muted }}>
+        Run these commands in the <strong>Terminal</strong> to get started with {templateName}.
+      </p>
+      <div style={{
+        background: C.termBg, borderRadius: R.lg, padding: '16px 18px',
+        fontFamily: FONT.mono, fontSize: 13, lineHeight: 1.8,
+      }}>
+        {cmds.map((cmd, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ color: C.termGreen, userSelect: 'none', flexShrink: 0 }}>$</span>
+            <span style={{ color: C.termText }}>{cmd}</span>
+          </div>
+        ))}
+      </div>
+      <p style={{ margin: '10px 0 0', fontSize: 12, color: C.faint }}>
+        Files created in the terminal are saved to <code style={{ fontFamily: FONT.mono }}>/workspace</code> and persist across restarts.
+      </p>
     </div>
   )
 }
@@ -283,30 +395,36 @@ function PodsTab({ pods, onRefresh }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ ...S.sectionTitle, margin: 0 }}>Pods</h3>
-        <button style={S.btnSmall} onClick={onRefresh}>Refresh</button>
+        <h3 style={S.secTitle}>Pods</h3>
+        <Button size="sm" variant="secondary" onClick={onRefresh}>↻ Refresh</Button>
       </div>
       {pods.length === 0
-        ? <p style={{ color: '#6b7280' }}>No pods found.</p>
+        ? <EmptyMsg>No pods found for this environment.</EmptyMsg>
         : (
-          <table style={S.table}>
-            <thead>
-              <tr>{['Name','Phase','Ready','Restarts','Node','Age'].map(h =>
-                <th key={h} style={S.th}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {pods.map(pod => (
-                <tr key={pod.name} style={S.tr}>
-                  <td style={S.td}><code style={{ fontSize: 11 }}>{pod.name}</code></td>
-                  <td style={S.td}>{pod.phase}</td>
-                  <td style={S.td}>{pod.ready ? '✓' : '✗'}</td>
-                  <td style={S.td}>{pod.restartCount}</td>
-                  <td style={S.td}>{pod.nodeName ?? '—'}</td>
-                  <td style={S.td}>{pod.createdAt ? timeSince(pod.createdAt) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: R.lg, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>{['Name', 'Phase', 'Ready', 'Restarts', 'Node', 'Age'].map(h =>
+                  <th key={h} style={S.th}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {pods.map(pod => (
+                  <tr key={pod.name} style={S.tr}>
+                    <td style={S.td}><code style={{ fontSize: 11, fontFamily: FONT.mono }}>{pod.name}</code></td>
+                    <td style={S.td}>{pod.phase}</td>
+                    <td style={S.td}>
+                      <span style={{ color: pod.ready ? C.green : C.red, fontWeight: 700 }}>
+                        {pod.ready ? '✓' : '✗'}
+                      </span>
+                    </td>
+                    <td style={S.td}>{pod.restartCount}</td>
+                    <td style={S.td}>{pod.nodeName ?? '—'}</td>
+                    <td style={S.td}>{pod.createdAt ? timeSince(pod.createdAt) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )
       }
     </div>
@@ -317,35 +435,99 @@ function LogsTab({ logs, loading, logLines, setLogLines, onFetch }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ ...S.sectionTitle, margin: 0 }}>Logs</h3>
+        <h3 style={{ ...S.secTitle, margin: 0 }}>Container Logs</h3>
         <input type="number" value={logLines} min="10" max="2000"
           onChange={e => setLogLines(parseInt(e.target.value) || 200)}
-          style={{ ...S.scaleInput, width: 70 }} />
-        <span style={{ fontSize: 13, color: '#6b7280' }}>lines</span>
-        <button style={S.btnSmall} onClick={onFetch}>Fetch</button>
+          style={{
+            width: 70, padding: '5px 8px', borderRadius: R.sm,
+            border: `1px solid ${C.borderStrong}`, fontSize: 13,
+            fontFamily: 'inherit', textAlign: 'center',
+          }} />
+        <span style={{ fontSize: 12, color: C.faint }}>lines</span>
+        <Button size="sm" variant="secondary" onClick={onFetch}>Fetch</Button>
         {loading && <Spinner size={14} />}
       </div>
       <pre style={S.logBox}>
-        {logs || 'No logs yet. Environment must be running to retrieve logs.'}
+        {logs || 'No logs yet. The environment must be running.'}
       </pre>
     </div>
   )
 }
 
-function ActionBtn({ label, loading, onClick, disabled, color }) {
+// ── Shared small components ───────────────────────────────────────────────────
+
+function Section({ title, children }) {
   return (
-    <button onClick={onClick} disabled={disabled || loading} style={{
-      padding: '7px 14px', borderRadius: 6, border: 'none',
-      background: disabled || loading ? '#e5e7eb' : color,
-      color: disabled || loading ? '#9ca3af' : '#fff',
-      cursor: disabled || loading ? 'not-allowed' : 'pointer',
-      fontSize: 13, fontWeight: 500,
-      display: 'flex', alignItems: 'center', gap: 6,
-    }}>
-      {loading ? <Spinner size={13} /> : null}
-      {label}
-    </button>
+    <div>
+      <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {title}
+      </h3>
+      {children}
+    </div>
   )
+}
+
+function InfoGrid({ children }) {
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>{children}</div>
+}
+
+function InfoRow({ label, value, mono }) {
+  return (
+    <div style={{ display: 'flex', borderBottom: `1px solid ${C.divider}`, padding: '7px 0', gap: 16 }}>
+      <span style={{ width: 130, flexShrink: 0, fontSize: 13, color: C.muted, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 13, color: C.body, fontFamily: mono ? FONT.mono : undefined, wordBreak: 'break-all' }}>
+        {value ?? '—'}
+      </span>
+    </div>
+  )
+}
+
+function UrlLink({ href, label }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer"
+      style={{ color: C.primary, fontSize: 13, wordBreak: 'break-all' }}>
+      <span style={{ fontFamily: FONT.mono }}>{label || href}</span> ↗
+    </a>
+  )
+}
+
+function ResourceCard({ label, value, accent }) {
+  return (
+    <div style={{
+      flex: '1 1 100px', minWidth: 90,
+      background: accent.bg, border: `1px solid ${accent.border}`,
+      borderRadius: R.lg, padding: '12px 16px',
+      display: 'flex', flexDirection: 'column', gap: 2,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: accent.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 18, fontWeight: 700, color: accent.color }}>{value}</span>
+    </div>
+  )
+}
+
+function MetaChip({ children }) {
+  return (
+    <span style={{
+      padding: '2px 8px', borderRadius: R.full,
+      background: C.bgSubtle, border: `1px solid ${C.border}`,
+      fontSize: 11, fontWeight: 500, color: C.muted,
+    }}>
+      {children}
+    </span>
+  )
+}
+
+function EmptyMsg({ children }) {
+  return <p style={{ color: C.muted, fontSize: 13, margin: '8px 0' }}>{children}</p>
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function timeSince(iso) {
@@ -356,69 +538,88 @@ function timeSince(iso) {
 }
 
 const S = {
-  page: { maxWidth: 1000, margin: '0 auto', padding: '24px 16px' },
-  breadcrumb: { fontSize: 13, color: '#6b7280', marginBottom: 12 },
-  link: { color: '#2563eb', textDecoration: 'none' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  title: { margin: 0, fontSize: 22, fontWeight: 700 },
-  desc: { margin: '0 0 4px', color: '#6b7280', fontSize: 14 },
-  meta: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
-  provisioningBanner: {
-    display: 'flex', alignItems: 'center', gap: 10,
-    background: '#eff6ff', border: '1px solid #bfdbfe',
-    borderRadius: 6, padding: '10px 14px', marginBottom: 14,
-    fontSize: 13, color: '#1d4ed8',
+  page: { maxWidth: 960, margin: '0 auto', padding: '28px 20px' },
+
+  breadcrumb: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: C.muted, marginBottom: 18 },
+  bcLink: { color: C.muted, textDecoration: 'none' },
+  bcSep: { color: C.border, fontSize: 16 },
+
+  identityPanel: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+    gap: 16, flexWrap: 'wrap',
+    background: C.bg, border: `1px solid ${C.border}`,
+    borderTop: '3px solid', borderRadius: R.xl,
+    padding: '20px 24px', marginBottom: 14,
+    boxShadow: SHADOW.md,
   },
-  failBanner: {
-    background: '#fee2e2', border: '1px solid #fca5a5',
-    borderRadius: 6, padding: '10px 14px', marginBottom: 14,
-    fontSize: 13, color: '#b91c1c',
+  identityLeft: { display: 'flex', gap: 16, alignItems: 'flex-start', flex: 1, minWidth: 0 },
+  envName: { margin: 0, fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.02em' },
+  templateLabel: { fontSize: 13, color: C.muted, marginTop: 3, fontWeight: 500 },
+  metaRow: { display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 },
+
+  ctaCol: { display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', flexShrink: 0 },
+  ctaBtn: {
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '9px 18px', borderRadius: R.md,
+    color: '#fff', fontWeight: 700, fontSize: 13,
+    textDecoration: 'none', border: '1px solid',
+    whiteSpace: 'nowrap',
   },
-  infoBox: {
-    background: '#f0fdf4', border: '1px solid #86efac',
-    borderRadius: 6, padding: '10px 14px', marginBottom: 14,
-    fontSize: 13, color: '#166534',
-  },
-  actionBar: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, alignItems: 'center' },
-  btnOpen: {
-    display: 'inline-block', padding: '10px 20px',
-    borderRadius: 7, background: '#16a34a', color: '#fff',
-    fontWeight: 700, fontSize: 14, textDecoration: 'none',
-    flexShrink: 0,
-  },
-  btnDanger: {
-    padding: '7px 14px', borderRadius: 6, border: '1px solid #fca5a5',
-    background: '#fee2e2', color: '#dc2626', cursor: 'pointer',
-    fontSize: 13, fontWeight: 500,
+  startingIndicator: {
     display: 'flex', alignItems: 'center', gap: 6,
+    fontSize: 13, color: C.amberText, fontWeight: 500,
+    padding: '8px 0',
   },
-  btnSmall: {
-    padding: '5px 12px', borderRadius: 5, border: '1px solid #d1d5db',
-    background: '#fff', cursor: 'pointer', fontSize: 13,
+
+  banner: (type) => ({
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 14px', borderRadius: R.md, marginBottom: 10,
+    fontSize: 13, lineHeight: 1.5,
+    ...(type === 'info'    ? { background: C.amberLight, border: `1px solid ${C.amberBorder}`, color: C.amberText } :
+        type === 'success' ? { background: C.greenLight,  border: `1px solid ${C.greenBorder}`, color: C.greenText } :
+                             { background: C.redLight,    border: `1px solid ${C.redBorder}`,  color: C.redText }),
+  }),
+
+  gatewayCode: {
+    fontFamily: FONT.mono, fontSize: 12, padding: '1px 4px',
+    background: C.greenLight, borderRadius: R.sm,
   },
-  tabs: { display: 'flex', borderBottom: '2px solid #e5e7eb', marginBottom: 16 },
+
+  actionBar: { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16, alignItems: 'center' },
+
+  tabs: { display: 'flex', borderBottom: `2px solid ${C.border}`, marginBottom: 20, gap: 2 },
   tab: {
-    padding: '8px 18px', border: 'none', background: 'none',
-    cursor: 'pointer', fontSize: 14, color: '#6b7280', fontWeight: 500,
+    padding: '8px 16px', border: 'none', background: 'none',
+    cursor: 'pointer', fontSize: 13, color: C.muted, fontWeight: 500,
+    borderBottom: '2px solid transparent', marginBottom: -2,
+    fontFamily: 'inherit',
   },
-  tabActive: { color: '#2563eb', borderBottom: '2px solid #2563eb', marginBottom: -2 },
-  tabContent: { minHeight: 200 },
-  sectionTitle: { fontSize: 16, fontWeight: 600, marginTop: 0, marginBottom: 12 },
-  detailTable: { borderCollapse: 'collapse', width: '100%', maxWidth: 680 },
-  dtKey: { padding: '5px 12px 5px 0', fontWeight: 500, fontSize: 13, color: '#6b7280', width: 160, verticalAlign: 'top' },
-  dtVal: { padding: '5px 0', fontSize: 13, wordBreak: 'break-all' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', padding: '8px 10px', fontSize: 13, fontWeight: 600, borderBottom: '2px solid #e5e7eb' },
-  tr: { borderBottom: '1px solid #f3f4f6' },
-  td: { padding: '8px 10px', fontSize: 13 },
+  tabActive: { color: C.primary, borderBottom: `2px solid ${C.primary}` },
+  tabContent: { minHeight: 180 },
+
+  secTitle: { fontSize: 14, fontWeight: 700, color: C.ink, margin: '0 0 10px' },
+
+  techToggle: {
+    width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '12px 16px', background: C.bgSurface,
+    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+    borderBottom: `1px solid ${C.border}`,
+  },
+
+  th: {
+    textAlign: 'left', padding: '9px 14px',
+    fontSize: 11, fontWeight: 600, color: C.muted,
+    background: C.bgSurface, borderBottom: `1px solid ${C.border}`,
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  tr: { borderBottom: `1px solid ${C.divider}` },
+  td: { padding: '9px 14px', fontSize: 13, verticalAlign: 'middle' },
+
   logBox: {
-    background: '#111827', color: '#d1fae5', padding: 16,
-    borderRadius: 6, overflowX: 'auto', overflowY: 'auto',
-    maxHeight: 500, fontSize: 12, lineHeight: 1.5, margin: 0,
-    fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-  },
-  scaleInput: {
-    padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db',
-    fontSize: 14, textAlign: 'center',
+    background: C.termBg, color: C.termText,
+    padding: '16px 18px', borderRadius: R.lg,
+    overflowX: 'auto', overflowY: 'auto',
+    maxHeight: 480, fontSize: 12, lineHeight: 1.6,
+    margin: 0, fontFamily: FONT.mono, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
   },
 }

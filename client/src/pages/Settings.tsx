@@ -30,8 +30,9 @@ export default function SettingsPage() {
             Settings
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Manage the display information attached to your authenticated Manus
-            identity.
+            Manage the display information attached to your DevBox Cloud
+            account.
+
           </p>
         </div>
         <div className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5 sm:p-6">
@@ -41,11 +42,13 @@ export default function SettingsPage() {
             </span>
             <div>
               <h2 className="text-sm font-semibold text-white">
-                Manus account
+                DevBox account
+
               </h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Authentication is managed through Manus OAuth. CNAD32 does not
+                Authentication is managed through OAuth. DevBox Cloud does not
                 store a password or OAuth token.
+
               </p>
             </div>
           </div>

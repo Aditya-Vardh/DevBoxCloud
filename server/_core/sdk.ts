@@ -18,7 +18,8 @@ import type {
   GetUserInfoResponse,
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
+} from "./types/authTypes";
+
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -38,10 +39,11 @@ class OAuthService {
     console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
     if (!ENV.oAuthServerUrl) {
       console.info(
-        "[OAuth] Hosted Manus OAuth is not configured. Localhost development may use the local session flow."
+        "[OAuth] Hosted OAuth is not configured. Localhost development may use the local session flow."
       );
     }
   }
+
 
   private decodeState(state: string): string {
     return decodeOAuthState(state).redirectUri;
@@ -164,10 +166,11 @@ class SDKServer {
   }
 
   /**
-   * Create a session token for a Manus user openId
+   * Create a session token for a user openId
    * @example
    * const sessionToken = await sdk.createSessionToken(userInfo.openId);
    */
+
   async createSessionToken(
     openId: string,
     options: { expiresInMs?: number; name?: string } = {}
@@ -330,7 +333,8 @@ class SDKServer {
 
 const CRON_OPEN_ID_PREFIX = "cron_";
 
-/** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`; see `/home/ubuntu/skills/webdev-periodic-updates/SKILL.md`. */
+/** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`. */
+
 export type AuthenticatedUser = User & {
   taskUid?: string;
   isCron?: boolean;
@@ -343,7 +347,8 @@ function buildCronUser(
   return {
     id: -1,
     openId: userInfo.openId,
-    name: userInfo.name || "Manus Scheduled Task",
+    name: userInfo.name || "Scheduled Task",
+
     email: null,
     loginMethod: null,
     role: "user",

@@ -20,7 +20,8 @@ export function registerOAuthRoutes(app: Express) {
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     if (!ENV.oAuthServerUrl || !ENV.appId) {
       res.status(503).json({
-        error: "Hosted Manus OAuth is not configured for this deployment.",
+        error: "Hosted OAuth is not configured for this deployment.",
+
       });
       return;
     }

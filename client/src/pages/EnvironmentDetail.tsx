@@ -116,6 +116,7 @@ export default function EnvironmentDetailPage() {
   const kubernetesError =
     "kubernetesError" in detail.data ? detail.data.kubernetesError : undefined;
   const openUrl = environment.accessUrl ?? kubernetes?.accessUrl;
+  const desktopUrl = kubernetes?.desktopUrl;
   const healthLabel = kubernetes?.health.deploymentAvailable
     ? "Ready"
     : environment.status === "provisioning"
@@ -155,6 +156,17 @@ export default function EnvironmentDetailPage() {
                   <Button className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Open environment
+                  </Button>
+                </a>
+              ) : null}
+              {desktopUrl ? (
+                <a href={desktopUrl} target="_blank" rel="noreferrer">
+                  <Button
+                    variant="outline"
+                    className="border-cyan-300/20 text-cyan-200 hover:bg-cyan-300/10"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open Desktop
                   </Button>
                 </a>
               ) : null}

@@ -19,6 +19,9 @@ public class EnvironmentResponse {
     private String templateId;
     private String templateName;
     private String templateIcon;
+    private String templateCategory;
+    /** Newline-separated quick-start commands for this template. */
+    private String templateQuickStart;
 
     private String name;
     private String description;
@@ -35,6 +38,10 @@ public class EnvironmentResponse {
 
     private Integer nodePort;
     private String accessUrl;
+    /** Direct link to the noVNC XFCE desktop page. */
+    private String desktopUrl;
+    /** Direct link to the browser terminal (ttyd via nginx). Same host as accessUrl, path /. */
+    private String terminalUrl;
     private String failureReason;
 
     private Instant createdAt;
@@ -50,6 +57,8 @@ public class EnvironmentResponse {
                 .templateId(e.getTemplate().getId())
                 .templateName(e.getTemplate().getDisplayName())
                 .templateIcon(e.getTemplate().getIcon())
+                .templateCategory(e.getTemplate().getCategory())
+                .templateQuickStart(e.getTemplate().getQuickStartCommands())
                 .name(e.getName())
                 .description(e.getDescription())
                 .status(e.getStatus())
@@ -62,6 +71,8 @@ public class EnvironmentResponse {
                 .k8sPvcName(e.getK8sPvcName())
                 .nodePort(e.getNodePort())
                 .accessUrl(e.getAccessUrl())
+                .desktopUrl(e.getDesktopUrl())
+                .terminalUrl(e.getTerminalUrl())
                 .failureReason(e.getFailureReason())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

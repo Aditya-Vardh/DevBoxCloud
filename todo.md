@@ -4,7 +4,7 @@
 - [x] Define the dark dashboard information architecture and reusable domain types.
 - [x] Add database schema and migration for templates, environments, environment events, audit records, and supporting indexes/foreign keys.
 - [x] Seed and expose active Node.js, Python, Go, and Ubuntu environment templates with enforced resource presets.
-- [x] Preserve Manus OAuth and enforce user/admin authorization in backend procedures.
+- [x] Preserve DevBox OAuth and enforce user/admin authorization in backend procedures.
 - [x] Implement server-enforced environment validation and the provisioning-to-running-to-stopped-to-deleted lifecycle state machine.
 - [x] Implement Kubernetes client integration using @kubernetes/client-node with namespace, Deployment, Service, PersistentVolumeClaim, resource limits, probes, network policy, and cleanup.
 - [x] Implement environment APIs for create, list, detail, start, stop, restart, delete, health, logs, metrics, events, audits, and dashboard summaries.
@@ -27,7 +27,7 @@
 - [ ] Exercise and record the authenticated CNAD32 web application flow through creation, logs, metrics, lifecycle actions, and cleanup against Minikube.
 - [ ] Resolve the active Minikube kubeconfig server endpoint through HTTPS without disabling TLS verification, then verify real UI environment creation.
 - [ ] Diagnose and fix the environment record persistence error shown during provisioning, with an actionable server-side failure path.
-- [x] Implement a legitimate local/self-hosted authentication flow while preserving hosted Manus OAuth where configured.
+- [x] Implement a legitimate local/self-hosted authentication flow while preserving hosted DevBox OAuth where configured.
 - [x] Disable analytics cleanly when optional analytics variables are absent and prevent unresolved Vite placeholders from producing requests.
 - [x] Make the development command work in Windows PowerShell without Unix-only environment assignment syntax.
 - [x] Make GitHub repository selection visibly optional throughout the environment wizard and review summary.
@@ -40,3 +40,4 @@
 - [ ] Verify the repaired localhost login in a real browser session: click Continue on this computer, confirm dashboard navigation, refresh persistence, and authenticated state.
 - [ ] Verify localhost logout from the authenticated UI clears the session and returns to the login screen.
 - [ ] Perform a restored-project stability pass across the running application, server logs, browser logs, API routes, and remaining real Minikube workflow checks.
+

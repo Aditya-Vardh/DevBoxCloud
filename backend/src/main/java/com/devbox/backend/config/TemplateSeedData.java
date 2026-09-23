@@ -12,18 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Seeds the 6 built-in environment templates on startup.
+ * Seeds and keeps up-to-date the six built-in DevBox environment templates.
  *
- * All templates use devbox/workspace:latest — an Ubuntu 22.04 image with:
- *   - bash, curl, git, vim, wget, build-essential, openssh-client
- *   - ttyd (browser terminal server) on port 8080
+ * All templates share devbox/workspace:latest — Ubuntu 24.04 with full polyglot toolchain.
+ * The entrypoint starts nginx (port 8080), TigerVNC, XFCE, websockify, and ttyd.
  *
- * The startupCommand for every template is the ttyd invocation that binds
- * 0.0.0.0:8080, which is the port exposed by the Kubernetes Service and
- * the port the user's browser connects to via the NodePort access URL.
- *
- * Existing records are updated when the image or startupCommand changes,
- * so re-seeding on application restart picks up fixes automatically.
+ * DEVBOX_ENV_NAME and DEVBOX_TEMPLATE_ID are injected at pod-creation time by
+ * EnvironmentProvisioningService so the in-workspace experience is template-aware.
  */
 @Component
 @RequiredArgsConstructor
@@ -32,26 +27,9 @@ public class TemplateSeedData implements ApplicationRunner {
 
     private final TemplateRepository templateRepository;
 
-    /**
-     * The unified workspace image — built into Minikube via:
-     *   minikube image build -t devbox/workspace:latest ./workspace-image/
-     *
-     * imagePullPolicy: IfNotPresent in the Deployment spec ensures Minikube
-     * uses the locally built image without trying to pull from Docker Hub.
-     */
     private static final String WORKSPACE_IMAGE = "devbox/workspace:latest";
-
-    /**
-     * ttyd command that starts the browser terminal.
-     * Binds 0.0.0.0:8080 — required so the Kubernetes Service endpoint
-     * can reach the container (127.0.0.1 would be unreachable from outside the pod).
-     * --writable allows the user to type in the terminal.
-     */
-    private static final String TTYD_CMD =
-            "/usr/local/bin/ttyd --port 8080 --interface 0.0.0.0 --writable " +
-            "--client-option fontSize=14 " +
-            "--client-option \"theme={\\\"background\\\":\\\"#1e1e1e\\\",\\\"foreground\\\":\\\"#d4d4d4\\\"}\" " +
-            "/bin/bash";
+    private static final String ENTRYPOINT_CMD  = "/usr/local/bin/devbox-entrypoint";
+    private static final String BASE_ENV        = "DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color";
 
     @Override
     @Transactional
@@ -61,139 +39,163 @@ public class TemplateSeedData implements ApplicationRunner {
             Template.builder()
                 .id("ubuntu")
                 .displayName("Ubuntu Development")
-                .description("General-purpose Ubuntu 22.04 workspace. Includes bash, curl, git, vim, " +
-                             "wget, and build-essential. Browser terminal on port 8080.")
+                .description(
+                    "Ubuntu 24.04 workspace with XFCE desktop, browser terminal, and a full " +
+                    "Linux development toolchain: bash, curl, git, vim, build-essential, htop.")
                 .image(WORKSPACE_IMAGE)
-                .category("Linux / Ubuntu")
+                .category("Ubuntu 24.04")
                 .icon("🐧")
-                .defaultCpu("250m").maxCpu("1000m")
-                .defaultMemory("512Mi").maxMemory("2Gi")
-                .defaultStorage("2Gi")
+                .defaultCpu("500m").maxCpu("2000m")
+                .defaultMemory("1Gi").maxMemory("4Gi")
+                .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,wget,build-essential,openssh-client")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color")
-                .startupCommand(TTYD_CMD)
+                .installedTools("bash,curl,git,vim,nano,build-essential,htop,tree,jq,xfce4,tigervnc,novnc,ttyd")
+                .envVars(BASE_ENV)
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands("uname -a\ngit --version\nbash --version\nls /workspace")
                 .sortOrder(1)
                 .build(),
 
             Template.builder()
                 .id("python")
                 .displayName("Python Development")
-                .description("Ubuntu 22.04 workspace with Python 3 and pip pre-installed. " +
-                             "Browser terminal on port 8080. Run pip install inside the workspace.")
+                .description(
+                    "Python 3.12 workspace. Both python/python3 and pip/pip3 are available. " +
+                    "Includes venv, virtualenv, git, and the full XFCE desktop.")
                 .image(WORKSPACE_IMAGE)
-                .category("Python")
+                .category("Python 3.12")
                 .icon("🐍")
-                .defaultCpu("250m").maxCpu("1000m")
-                .defaultMemory("512Mi").maxMemory("2Gi")
-                .defaultStorage("2Gi")
+                .defaultCpu("500m").maxCpu("2000m")
+                .defaultMemory("1Gi").maxMemory("4Gi")
+                .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,python3,pip3")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color\nPYTHONUNBUFFERED=1")
-                .startupCommand(TTYD_CMD)
+                .installedTools("python3,python,pip3,pip,venv,virtualenv,bash,curl,git,vim")
+                .envVars(BASE_ENV + "\nPYTHONUNBUFFERED=1")
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands(
+                    "python3 --version\npip3 --version\npython3 -m venv .venv\n" +
+                    "source .venv/bin/activate\ngit --version")
                 .sortOrder(2)
                 .build(),
 
             Template.builder()
                 .id("nodejs")
                 .displayName("Node.js Development")
-                .description("Ubuntu 22.04 workspace with Node.js 20 LTS and npm. " +
-                             "Browser terminal on port 8080.")
+                .description(
+                    "Node.js 20 LTS workspace with npm and npx. Use npm to install packages " +
+                    "and run scripts. Full XFCE desktop and browser terminal included.")
                 .image(WORKSPACE_IMAGE)
                 .category("Node.js 20 LTS")
                 .icon("🟩")
-                .defaultCpu("250m").maxCpu("1000m")
-                .defaultMemory("512Mi").maxMemory("2Gi")
-                .defaultStorage("2Gi")
+                .defaultCpu("500m").maxCpu("2000m")
+                .defaultMemory("1Gi").maxMemory("4Gi")
+                .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,node,npm,npx")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color\nNODE_ENV=development")
-                .startupCommand(TTYD_CMD)
+                .installedTools("node,npm,npx,bash,curl,git,vim")
+                .envVars(BASE_ENV + "\nNODE_ENV=development")
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands(
+                    "node --version\nnpm --version\nnpx --version\n" +
+                    "npm init -y\nnpm install express")
                 .sortOrder(3)
                 .build(),
 
             Template.builder()
                 .id("java")
                 .displayName("Java Development")
-                .description("Ubuntu 22.04 workspace with OpenJDK 21 and Maven. " +
-                             "Browser terminal on port 8080.")
+                .description(
+                    "OpenJDK 21 workspace with javac, Maven (mvn), and Gradle. " +
+                    "Full XFCE desktop and browser terminal.")
                 .image(WORKSPACE_IMAGE)
-                .category("Java 21")
+                .category("Java 21 / Maven / Gradle")
                 .icon("☕")
                 .defaultCpu("500m").maxCpu("2000m")
                 .defaultMemory("1Gi").maxMemory("4Gi")
-                .defaultStorage("3Gi")
+                .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,java,mvn")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color")
-                .startupCommand(TTYD_CMD)
+                .installedTools("java,javac,mvn,gradle,bash,curl,git,vim")
+                .envVars(BASE_ENV + "\nJAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64")
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands(
+                    "java --version\njavac --version\nmvn --version\ngradle --version\n" +
+                    "mvn archetype:generate -DgroupId=com.example -DartifactId=myapp")
                 .sortOrder(4)
                 .build(),
 
             Template.builder()
                 .id("react")
                 .displayName("React Development")
-                .description("Ubuntu 22.04 workspace with Node.js 20 and Vite for React/TypeScript. " +
-                             "Browser terminal on port 8080.")
+                .description(
+                    "Node.js 20 LTS workspace for React and Vite projects. " +
+                    "Use npx to scaffold new apps. Full XFCE desktop and browser terminal.")
                 .image(WORKSPACE_IMAGE)
-                .category("React / TypeScript")
+                .category("React / Vite / TypeScript")
                 .icon("⚛️")
-                .defaultCpu("250m").maxCpu("1000m")
-                .defaultMemory("768Mi").maxMemory("2Gi")
-                .defaultStorage("2Gi")
+                .defaultCpu("500m").maxCpu("2000m")
+                .defaultMemory("1Gi").maxMemory("4Gi")
+                .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,node,npm,npx")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color\nNODE_ENV=development")
-                .startupCommand(TTYD_CMD)
+                .installedTools("node,npm,npx,bash,curl,git,vim")
+                .envVars(BASE_ENV + "\nNODE_ENV=development")
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands(
+                    "node --version\nnpm --version\n" +
+                    "npm create vite@latest my-app -- --template react\n" +
+                    "npx create-react-app my-app")
                 .sortOrder(5)
                 .build(),
 
             Template.builder()
                 .id("fullstack")
                 .displayName("Full Stack Development")
-                .description("Ubuntu 22.04 workspace with Node.js 20, Python 3, Git, and common build " +
-                             "tools for polyglot development. Browser terminal on port 8080.")
+                .description(
+                    "Polyglot workspace: Node.js 20, Python 3.12, OpenJDK 21, Maven, Gradle, " +
+                    "PostgreSQL client, and Docker CLI. Ideal for multi-language projects.")
                 .image(WORKSPACE_IMAGE)
                 .category("Multi-language")
                 .icon("🚀")
-                .defaultCpu("500m").maxCpu("2000m")
+                .defaultCpu("1000m").maxCpu("2000m")
                 .defaultMemory("1Gi").maxMemory("4Gi")
                 .defaultStorage("5Gi")
                 .containerPort(8080)
-                .installedTools("bash,curl,git,vim,wget,build-essential,python3,pip3,node,npm")
-                .envVars("DEBIAN_FRONTEND=noninteractive\nTERM=xterm-256color\nNODE_ENV=development\nPYTHONUNBUFFERED=1")
-                .startupCommand(TTYD_CMD)
+                .installedTools("node,npm,python3,pip3,java,javac,mvn,gradle,psql,docker,bash,curl,git")
+                .envVars(BASE_ENV
+                    + "\nNODE_ENV=development\nPYTHONUNBUFFERED=1"
+                    + "\nJAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64")
+                .startupCommand(ENTRYPOINT_CMD)
+                .quickStartCommands(
+                    "node --version\npython3 --version\njava --version\nmvn --version\npsql --version")
                 .sortOrder(6)
                 .build()
         );
 
-        int inserted = 0;
-        int updated = 0;
+        int inserted = 0, updated = 0;
         for (Template t : templates) {
             if (!templateRepository.existsById(t.getId())) {
                 templateRepository.save(t);
                 inserted++;
             } else {
-                // Always update image and startupCommand so fixes propagate on restart
-                Template existing = templateRepository.findById(t.getId()).get();
+                Template x = templateRepository.findById(t.getId()).get();
                 boolean changed = false;
-                if (!t.getImage().equals(existing.getImage())) {
-                    existing.setImage(t.getImage());
-                    changed = true;
+                if (!t.getImage().equals(x.getImage()))             { x.setImage(t.getImage());                     changed = true; }
+                if (!t.getDisplayName().equals(x.getDisplayName())) { x.setDisplayName(t.getDisplayName());         changed = true; }
+                if (!t.getDescription().equals(x.getDescription())) { x.setDescription(t.getDescription());         changed = true; }
+                if (!t.getCategory().equals(x.getCategory()))       { x.setCategory(t.getCategory());               changed = true; }
+                if (!t.getInstalledTools().equals(x.getInstalledTools())) { x.setInstalledTools(t.getInstalledTools()); changed = true; }
+                if (t.getContainerPort() != x.getContainerPort())   { x.setContainerPort(t.getContainerPort());     changed = true; }
+                if (t.getStartupCommand() != null && !t.getStartupCommand().equals(x.getStartupCommand())) { x.setStartupCommand(t.getStartupCommand()); changed = true; }
+                if (t.getEnvVars() != null && !t.getEnvVars().equals(x.getEnvVars())) { x.setEnvVars(t.getEnvVars()); changed = true; }
+                if (t.getSortOrder() != x.getSortOrder())           { x.setSortOrder(t.getSortOrder());             changed = true; }
+                // Always sync quick-start commands
+                if (t.getQuickStartCommands() != null
+                        && !t.getQuickStartCommands().equals(x.getQuickStartCommands())) {
+                    x.setQuickStartCommands(t.getQuickStartCommands()); changed = true;
                 }
-                String newCmd = t.getStartupCommand();
-                String oldCmd = existing.getStartupCommand();
-                if (newCmd != null && !newCmd.equals(oldCmd)) {
-                    existing.setStartupCommand(newCmd);
-                    changed = true;
-                }
-                if (changed) {
-                    templateRepository.save(existing);
-                    updated++;
-                }
+                if (changed) { templateRepository.save(x); updated++; }
             }
         }
-        if (inserted > 0) log.info("Seeded {} environment template(s)", inserted);
-        if (updated > 0)  log.info("Updated {} environment template(s) (image/startupCommand)", updated);
+        if (inserted > 0) log.info("Seeded {} template(s)", inserted);
+        if (updated  > 0) log.info("Updated {} template(s)", updated);
+        if (inserted == 0 && updated == 0) log.debug("All {} templates up-to-date", templates.size());
     }
 }

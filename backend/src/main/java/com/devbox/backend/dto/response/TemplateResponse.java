@@ -22,6 +22,8 @@ public class TemplateResponse {
     private int containerPort;
     private String installedTools;
     private String startupCommand;
+    /** Newline-separated quick-start commands shown in the modal and terminal banner. */
+    private String quickStartCommands;
     private boolean active;
     private int sortOrder;
 
@@ -41,6 +43,7 @@ public class TemplateResponse {
                 .containerPort(t.getContainerPort())
                 .installedTools(t.getInstalledTools())
                 .startupCommand(t.getStartupCommand())
+                .quickStartCommands(t.getQuickStartCommands())
                 .active(t.isActive())
                 .sortOrder(t.getSortOrder())
                 .build();

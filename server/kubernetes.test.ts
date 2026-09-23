@@ -104,6 +104,11 @@ describe("KubernetesProvider resource construction", () => {
     expect(container.securityContext.readOnlyRootFilesystem).toBe(true);
     expect(container.securityContext.capabilities.drop).toEqual(["ALL"]);
     expect(container.resources.limits).toEqual({ cpu: "500m", memory: "1Gi" });
+    expect(container.command).toEqual([
+      "sh",
+      "-c",
+      "exec /usr/local/bin/devbox-entrypoint",
+    ]);
   });
 
   it("uses strategic-merge PATCH without apply-only force or field-manager options for all lifecycle mutations", async () => {
@@ -145,6 +150,29 @@ describe("KubernetesProvider resource construction", () => {
         metadata: { name: "workspace", namespace: environment.namespace },
       });
     }
+  });
+
+  it("waits for the Ubuntu desktop gateway before reporting readiness", () => {
+    const provider = new KubernetesProvider() as unknown as {
+      resources: (workspace: {
+        environment: Environment;
+        template: EnvironmentTemplate;
+      }) => Record<string, any>;
+    };
+    const resources = provider.resources({
+      environment: { ...environment, runtime: "ubuntu", port: 8080 },
+      template: {
+        ...template,
+        slug: "ubuntu",
+        runtime: "ubuntu",
+        allowedPorts: [8080],
+      },
+    });
+
+    expect(
+      resources.deployment.spec.template.spec.containers[0].readinessProbe.exec
+        .command.join(" ")
+    ).toContain("curl -fsS http://127.0.0.1:8080/healthz");
   });
 
   it("treats a Kubernetes 404 during temporary namespace deletion as successful idempotent cleanup", async () => {

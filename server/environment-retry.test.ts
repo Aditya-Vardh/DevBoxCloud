@@ -101,7 +101,8 @@ function contextForUser(): TrpcContext {
       openId: "retry-test-user",
       name: "Retry Test",
       email: null,
-      loginMethod: "manus",
+      loginMethod: "oauth",
+
       role: "user",
       createdAt: new Date(),
       updatedAt: new Date(),

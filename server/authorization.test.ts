@@ -17,7 +17,8 @@ function contextFor(role: "user" | "admin"): TrpcContext {
       openId: "authorization-test-user",
       name: "Authorization test user",
       email: null,
-      loginMethod: "manus",
+      loginMethod: "oauth",
+
       role,
       createdAt: new Date(),
       updatedAt: new Date(),

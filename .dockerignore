@@ -4,4 +4,4 @@ dist
 .env
 .env.*
 coverage
-.manus-logs
+

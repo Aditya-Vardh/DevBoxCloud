@@ -6,7 +6,7 @@ CNAD32 is a modular monolith. The browser interacts with typed tRPC procedures; 
 flowchart LR
   U[Authenticated user] --> F[React dashboard]
   F -->|tRPC / HTTPS| A[Express API]
-  A --> O[Manus OAuth session context]
+  A --> O[OAuth session context]
   A --> D[(MySQL-compatible database)]
   A --> K[Kubernetes provider]
   K --> N[Dedicated environment namespace]
@@ -44,3 +44,4 @@ stateDiagram-v2
 ```
 
 The `failed` state is an exception path, not a client-controlled lifecycle value. Requests cannot write status fields directly.
+

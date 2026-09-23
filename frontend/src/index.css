@@ -2,36 +2,124 @@
   box-sizing: border-box;
 }
 
+:root {
+  --color-primary:        #2563eb;
+  --color-primary-hover:  #1d4ed8;
+  --color-primary-light:  #eff6ff;
+  --color-green:          #16a34a;
+  --color-red:            #dc2626;
+  --color-amber:          #d97706;
+  --color-ink:            #111827;
+  --color-body:           #374151;
+  --color-muted:          #6b7280;
+  --color-faint:          #9ca3af;
+  --color-border:         #e5e7eb;
+  --color-border-strong:  #d1d5db;
+  --color-bg:             #ffffff;
+  --color-bg-surface:     #f9fafb;
+  --color-bg-subtle:      #f3f4f6;
+  --radius-sm:            4px;
+  --radius-md:            6px;
+  --radius-lg:            8px;
+  --radius-xl:            10px;
+  --shadow-sm:            0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:            0 2px 8px rgba(0,0,0,0.08);
+  --shadow-lg:            0 4px 16px rgba(0,0,0,0.10);
+  --font-sans:            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono:            'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+}
+
+html { font-size: 14px; }
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  color: #111827;
-  background: #fff;
+  line-height: 1.5;
+  color: var(--color-body);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
-  color: #2563eb;
+  color: var(--color-primary);
   text-decoration: none;
 }
+a:hover { text-decoration: underline; }
 
-a:hover {
-  text-decoration: underline;
+button {
+  font-family: var(--font-sans);
+  font-size: 13px;
 }
 
-button:focus-visible {
-  outline: 2px solid #2563eb;
+code, pre, kbd {
+  font-family: var(--font-mono);
+}
+
+/* Focus rings */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-input:focus {
-  outline: 2px solid #2563eb;
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-primary);
   outline-offset: 0;
-  border-color: #2563eb;
+  border-color: var(--color-primary) !important;
 }
+
+/* Smooth transitions on interactive elements */
+button, a { transition: opacity 0.12s, background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s; }
+
+/* Scrollbars (Webkit) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Page entry animation */
+.page-enter {
+  animation: fadeIn 0.18s ease both;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-bg-subtle) 25%, var(--color-border) 50%, var(--color-bg-subtle) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
 }

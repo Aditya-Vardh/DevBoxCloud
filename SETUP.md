@@ -10,9 +10,9 @@ Use Node.js 22, pnpm 10, a MySQL-compatible database, and a Kubernetes cluster f
 | ------------------------------ | ---------------------------------------------------------------------------- | --------------------------------- |
 | `DATABASE_URL`                 | MySQL-compatible connection string                                           | Yes                               |
 | `JWT_SECRET`                   | Session signing secret                                                       | Yes                               |
-| `VITE_APP_ID`                  | Manus OAuth application identifier                                           | Hosted Manus OAuth only           |
-| `VITE_OAUTH_PORTAL_URL`        | Manus OAuth portal URL                                                       | Hosted Manus OAuth only           |
-| `OAUTH_SERVER_URL`             | Manus OAuth server URL                                                       | Hosted Manus OAuth only           |
+| `VITE_APP_ID`                  | OAuth application identifier                                           | Hosted OAuth only           |
+| `VITE_OAUTH_PORTAL_URL`        | OAuth portal URL                                                       | Hosted OAuth only           |
+| `OAUTH_SERVER_URL`             | OAuth server URL                                                       | Hosted OAuth only           |
 | `CNAD32_LOCAL_AUTH_NAME`       | Optional label for the loopback-only local development operator              | Optional                          |
 | `VITE_ANALYTICS_ENDPOINT`      | Optional HTTPS analytics origin; analytics is disabled if absent             | Optional                          |
 | `VITE_ANALYTICS_WEBSITE_ID`    | Optional analytics website identifier; analytics is disabled if absent       | Optional                          |
@@ -39,7 +39,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-On `http://localhost`, CNAD32 provides a signed **local development session** restricted to loopback traffic. It does not require or emulate Manus OAuth. Hosted deployments use Manus OAuth when `VITE_APP_ID`, `VITE_OAUTH_PORTAL_URL`, and `OAUTH_SERVER_URL` are configured. The session survives refreshes and logout clears it.
+On `http://localhost`, CNAD32 provides a signed **local development session** restricted to loopback traffic. It does not require or emulate OAuth. Hosted deployments use OAuth when `VITE_APP_ID`, `VITE_OAUTH_PORTAL_URL`, and `OAUTH_SERVER_URL` are configured. The session survives refreshes and logout clears it.
 
 Analytics is optional. Leave both analytics variables unset to disable it completely; no placeholder request is emitted.
 
@@ -71,3 +71,4 @@ On Windows PowerShell, `pnpm dev` works directly. CNAD32's development bootstrap
 ## Repository source
 
 GitHub is optional. Leave **GitHub Repository (Optional)** blank or choose **Skip repository** to start with an empty workspace. Only a public HTTPS repository URL triggers the existing init-container clone behavior.
+

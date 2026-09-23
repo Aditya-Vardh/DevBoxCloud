@@ -25,6 +25,7 @@ export type KubernetesEnvironmentStatus = {
   podName: string | null;
   failureReason: string | null;
   accessUrl: string | null;
+  desktopUrl: string | null;
 };
 
 type Workspace = {
@@ -172,11 +173,32 @@ function resourceLabels(workspace: Workspace) {
 }
 
 function workspaceAccessUrl(workspace: Workspace) {
-  if (!ENV.workspaceHostSuffix) return null;
-  return `https://${workspace.environment.namespace}.${ENV.workspaceHostSuffix}`;
+  if (workspace.environment.accessUrl) {
+    return workspace.environment.accessUrl;
+  }
+  if (ENV.workspaceHostSuffix) {
+    return `https://${workspace.environment.namespace}.${ENV.workspaceHostSuffix}`;
+  }
+  return `http://localhost:${workspace.environment.port}`;
 }
 
-function readinessCommand() {
+
+
+function workspaceDesktopUrl(workspace: Workspace) {
+  const accessUrl = workspaceAccessUrl(workspace);
+  return accessUrl
+    ? `${accessUrl}/desktop/vnc.html?autoconnect=true&path=desktop/websockify`
+    : null;
+}
+
+function readinessCommand(template: EnvironmentTemplate) {
+  if (template.slug === "ubuntu") {
+    return [
+      "sh",
+      "-c",
+      "test -d /workspace && test -w /workspace && curl -fsS http://127.0.0.1:8080/healthz",
+    ];
+  }
   return ["sh", "-c", "test -d /workspace && test -w /workspace"];
 }
 
@@ -412,7 +434,7 @@ export class KubernetesProvider {
                 command: [
                   "sh",
                   "-c",
-                  "mkdir -p /workspace/.home && trap : TERM INT; sleep infinity & wait",
+                  "exec /usr/local/bin/devbox-entrypoint",
                 ],
                 envFrom: [{ configMapRef: { name: configMapName } }],
                 env: [{ name: "HOME", value: "/workspace/.home" }],
@@ -434,12 +456,12 @@ export class KubernetesProvider {
                   },
                 },
                 readinessProbe: {
-                  exec: { command: readinessCommand() },
+                  exec: { command: readinessCommand(template) },
                   initialDelaySeconds: 2,
                   periodSeconds: 5,
                 },
                 livenessProbe: {
-                  exec: { command: readinessCommand() },
+                  exec: { command: readinessCommand(template) },
                   initialDelaySeconds: 10,
                   periodSeconds: 15,
                 },
@@ -490,6 +512,8 @@ export class KubernetesProvider {
         ],
       },
     };
+
+
     const ingress = ENV.workspaceHostSuffix
       ? {
           apiVersion: "networking.k8s.io/v1",
@@ -595,6 +619,7 @@ export class KubernetesProvider {
           podName: null,
           failureReason: null,
           accessUrl: null,
+          desktopUrl: null,
         };
       }
       throw new KubernetesUnavailableError(
@@ -664,6 +689,7 @@ export class KubernetesProvider {
       podName: pod?.metadata?.name ?? null,
       failureReason,
       accessUrl: status === "running" ? workspaceAccessUrl(workspace) : null,
+      desktopUrl: status === "running" ? workspaceDesktopUrl(workspace) : null,
     };
   }
 

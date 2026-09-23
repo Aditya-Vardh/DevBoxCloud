@@ -92,6 +92,23 @@ public class Environment {
     @Column(name = "access_url", length = 512)
     private String accessUrl;
 
+    /**
+     * Direct URL to the noVNC desktop page.
+     * Value: accessUrl + /desktop/vnc.html?autoconnect=true&path=websockify
+     * Populated at the same time as accessUrl.
+     */
+    @Column(name = "desktop_url", length = 512)
+    private String desktopUrl;
+
+    /**
+     * Direct URL to the browser terminal (ttyd via nginx gateway).
+     * Value: same as accessUrl (nginx proxies / → ttyd:7681).
+     * Stored separately so the frontend can render a distinct "Open Terminal" button
+     * without reconstructing URLs client-side.
+     */
+    @Column(name = "terminal_url", length = 512)
+    private String terminalUrl;
+
     // ── Audit ─────────────────────────────────────────────────────────────────
 
     @Column(name = "failure_reason", length = 1024)

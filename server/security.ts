@@ -27,7 +27,8 @@ export function securityHeaders(
   if (process.env.NODE_ENV === "production") {
     response.setHeader(
       "Content-Security-Policy",
-      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://manus-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://manus-analytics.com https://api.manus.im; img-src 'self' data: https:; form-action 'self'"
+      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:; form-action 'self'"
+
     );
   }
   next();

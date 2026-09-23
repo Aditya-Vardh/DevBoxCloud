@@ -22,7 +22,8 @@ export const appRouter = router({
     loginMode: publicProcedure.query(({ ctx }) => ({
       mode: isLocalAuthRequest(ctx.req)
         ? ("local" as const)
-        : ("manus" as const),
+        : ("oauth" as const),
+
       hostedOAuthConfigured: Boolean(
         ENV.oAuthServerUrl && ENV.oAuthPortalUrl && ENV.appId
       ),

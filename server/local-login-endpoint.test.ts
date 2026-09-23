@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
+import * as db from "./db";
 import { appRouter } from "./routers";
 
 type CookieWrite = {
@@ -10,6 +11,19 @@ type CookieWrite = {
 
 describe("auth.localLogin", () => {
   it("creates a localhost-compatible signed session cookie and returns the local operator", async () => {
+    vi.spyOn(db, "upsertUser").mockResolvedValue(undefined);
+    vi.spyOn(db, "getUserByOpenId").mockResolvedValue({
+      id: 1,
+      openId: "local:operator",
+      name: "Local Operator",
+      email: null,
+      loginMethod: "local-development",
+      role: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    });
+    vi.spyOn(db, "createAuditLog").mockResolvedValue(undefined);
     const cookies: CookieWrite[] = [];
     const req = {
       protocol: "http",
