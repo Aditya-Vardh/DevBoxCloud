@@ -181,7 +181,7 @@ export async function getEnvironmentForUser(
 export async function listEnvironmentsForUser(input: {
   userId: number;
   status?: EnvironmentStatus;
-  runtime?: "node" | "python" | "go" | "ubuntu" | "java";
+  runtime?: "node" | "python" | "go" | "ubuntu" | "java" | "nodejs" | "react" | "fullstack";
   query?: string;
   limit: number;
 }) {
@@ -208,6 +208,8 @@ export async function setEnvironmentStatus(input: {
   status: EnvironmentStatus;
   failureReason?: string | null;
   accessUrl?: string | null;
+  desktopUrl?: string | null;
+  terminalUrl?: string | null;
 }) {
   const db = requireDb(await getDb());
   const now = new Date();
@@ -217,7 +219,7 @@ export async function setEnvironmentStatus(input: {
       : input.status === "stopped"
         ? { stoppedAt: now }
         : input.status === "deleted"
-          ? { deletedAt: now, accessUrl: null }
+          ? { deletedAt: now, accessUrl: null, desktopUrl: null, terminalUrl: null }
           : {};
   await db
     .update(environments)
@@ -225,6 +227,8 @@ export async function setEnvironmentStatus(input: {
       status: input.status,
       failureReason: input.failureReason ?? null,
       accessUrl: input.accessUrl ?? null,
+      desktopUrl: input.desktopUrl ?? null,
+      terminalUrl: input.terminalUrl ?? null,
       ...timestamps,
     })
     .where(eq(environments.id, input.environmentId));

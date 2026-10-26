@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { runtimeLabels } from "@shared/cnad";
+import type { EnvironmentRuntime } from "@shared/cnad";
 import { Boxes, Plus, Search, TerminalSquare } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "wouter";
@@ -16,7 +18,7 @@ const statuses = [
   "failed",
   "deleted",
 ] as const;
-const runtimes = ["all", "node", "python", "go", "ubuntu"] as const;
+const runtimes = ["all", "ubuntu", "python", "nodejs", "java", "react", "fullstack", "node", "go"] as const;
 
 export default function EnvironmentsPage() {
   const [search, setSearch] = useState("");
@@ -86,7 +88,7 @@ export default function EnvironmentsPage() {
             <option value="all">All runtimes</option>
             {runtimes.slice(1).map(value => (
               <option key={value} value={value}>
-                {value}
+                {runtimeLabels[value as EnvironmentRuntime] ?? value}
               </option>
             ))}
           </select>

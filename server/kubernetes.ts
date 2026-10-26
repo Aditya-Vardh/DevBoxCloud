@@ -16,6 +16,7 @@ import type {
   EnvironmentStatus,
 } from "../shared/cnad";
 import { ENV } from "./_core/env";
+import { WORKSPACE_IMAGE, WORKSPACE_PORT } from "./templates";
 
 export class KubernetesUnavailableError extends Error {}
 
@@ -26,6 +27,7 @@ export type KubernetesEnvironmentStatus = {
   failureReason: string | null;
   accessUrl: string | null;
   desktopUrl: string | null;
+  terminalUrl: string | null;
 };
 
 type Workspace = {
@@ -68,14 +70,6 @@ function isNotFound(error: unknown) {
   return error instanceof Error && /\b404\b|\bnot found\b/i.test(error.message);
 }
 
-/**
- * Resolve the active kubeconfig cluster endpoint into a complete URL before
- * client discovery. Kubeconfigs normally include an HTTPS scheme, but a bare
- * Minikube host:port is valid input for this local adapter and is made HTTPS
- * when certificate verification is active. A malformed HTTP Minikube entry is
- * upgraded to the same HTTPS host and port; certificate verification remains
- * enabled and a genuine TLS failure is still surfaced to the caller.
- */
 export function resolveKubernetesServerUrl(
   server: string,
   skipTLSVerify: boolean
@@ -172,34 +166,44 @@ function resourceLabels(workspace: Workspace) {
   };
 }
 
-function workspaceAccessUrl(workspace: Workspace) {
+function isDevboxWorkspaceImage(template: EnvironmentTemplate): boolean {
+  return (
+    template.image === WORKSPACE_IMAGE ||
+    template.image.startsWith("devbox/workspace") ||
+    template.slug === "ubuntu" ||
+    template.slug === "python" ||
+    template.slug === "nodejs" ||
+    template.slug === "java" ||
+    template.slug === "react" ||
+    template.slug === "fullstack"
+  );
+}
+
+function workspaceBaseUrl(workspace: Workspace): string | null {
   if (workspace.environment.accessUrl) {
     return workspace.environment.accessUrl;
   }
   if (ENV.workspaceHostSuffix) {
     return `https://${workspace.environment.namespace}.${ENV.workspaceHostSuffix}`;
   }
-  return `http://localhost:${workspace.environment.port}`;
+  return null;
 }
 
-
-
-function workspaceDesktopUrl(workspace: Workspace) {
-  const accessUrl = workspaceAccessUrl(workspace);
-  return accessUrl
-    ? `${accessUrl}/desktop/vnc.html?autoconnect=true&path=desktop/websockify`
-    : null;
+function workspaceAccessUrl(workspace: Workspace): string {
+  return workspaceBaseUrl(workspace) ?? `http://localhost:${workspace.environment.port}`;
 }
 
-function readinessCommand(template: EnvironmentTemplate) {
-  if (template.slug === "ubuntu") {
-    return [
-      "sh",
-      "-c",
-      "test -d /workspace && test -w /workspace && curl -fsS http://127.0.0.1:8080/healthz",
-    ];
-  }
-  return ["sh", "-c", "test -d /workspace && test -w /workspace"];
+function workspaceDesktopUrl(workspace: Workspace): string | null {
+  if (!isDevboxWorkspaceImage(workspace.template)) return null;
+  const base = workspaceBaseUrl(workspace);
+  if (!base) return null;
+  return `${base}/desktop/vnc.html?autoconnect=true&path=websockify`;
+}
+
+function workspaceTerminalUrl(workspace: Workspace): string | null {
+  const base = workspaceBaseUrl(workspace);
+  if (!base) return null;
+  return `${base}/terminal/`;
 }
 
 export class KubernetesProvider {
@@ -261,9 +265,9 @@ export class KubernetesProvider {
     const { environment, template } = workspace;
     const labels = resourceLabels(workspace);
     const configMapName = "workspace-config";
-    const imagePullPolicy = template.image.includes(":latest")
-      ? "Always"
-      : "IfNotPresent";
+    const isDevbox = isDevboxWorkspaceImage(template);
+    const imagePullPolicy = isDevbox ? "Never" : (template.image.includes(":latest") ? "Always" : "IfNotPresent");
+
     const gitInitContainer = environment.repositoryUrl
       ? [
           {
@@ -363,6 +367,9 @@ export class KubernetesProvider {
         CNAD32_RUNTIME: environment.runtime,
         CNAD32_WORKSPACE: "/workspace",
         CNAD32_PORT: String(environment.port),
+        DEVBOX_TEMPLATE_ID: template.slug,
+        DEVBOX_TEMPLATE_NAME: template.name,
+        DEVBOX_ENV_NAME: environment.name,
       },
     };
     const persistentVolumeClaim = {
@@ -403,6 +410,72 @@ export class KubernetesProvider {
         ],
       },
     };
+
+    const readinessProbe = isDevbox
+      ? {
+          exec: {
+            command: [
+              "sh",
+              "-c",
+              `test -d /workspace && test -w /workspace && curl -fsS http://127.0.0.1:${environment.port}/healthz`,
+            ],
+          },
+          initialDelaySeconds: 15,
+          periodSeconds: 5,
+          failureThreshold: 12,
+          successThreshold: 1,
+          timeoutSeconds: 3,
+        }
+      : {
+          exec: {
+            command: ["sh", "-c", "test -d /workspace && test -w /workspace"],
+          },
+          initialDelaySeconds: 2,
+          periodSeconds: 5,
+        };
+
+    const livenessProbe = isDevbox
+      ? {
+          exec: {
+            command: [
+              "sh",
+              "-c",
+              `test -d /workspace && test -w /workspace && curl -fsS http://127.0.0.1:${environment.port}/healthz`,
+            ],
+          },
+          initialDelaySeconds: 30,
+          periodSeconds: 15,
+          failureThreshold: 3,
+          timeoutSeconds: 5,
+        }
+      : {
+          exec: {
+            command: ["sh", "-c", "test -d /workspace && test -w /workspace"],
+          },
+          initialDelaySeconds: 10,
+          periodSeconds: 15,
+        };
+
+    const containerCommand = isDevbox
+      ? ["sh", "-c", "exec /usr/local/bin/devbox-entrypoint"]
+      : ["sh", "-c", "exec /usr/local/bin/devbox-entrypoint"];
+
+    const securityContext = isDevbox
+      ? {
+          fsGroup: 10001,
+          runAsNonRoot: true,
+          runAsUser: 10001,
+          runAsGroup: 10001,
+          seccompProfile: { type: "RuntimeDefault" },
+        }
+      : {
+          fsGroup: 10001,
+          runAsNonRoot: true,
+          runAsUser: 10001,
+          runAsGroup: 10001,
+          seccompProfile: { type: "RuntimeDefault" },
+        };
+
     const deployment: V1Deployment = {
       apiVersion: "apps/v1",
       kind: "Deployment",
@@ -418,24 +491,14 @@ export class KubernetesProvider {
           metadata: { labels, annotations: { "cnad32.io/managed": "true" } },
           spec: {
             automountServiceAccountToken: false,
-            securityContext: {
-              fsGroup: 10001,
-              runAsNonRoot: true,
-              runAsUser: 10001,
-              runAsGroup: 10001,
-              seccompProfile: { type: "RuntimeDefault" },
-            },
+            securityContext,
             initContainers: gitInitContainer,
             containers: [
               {
                 name: "workspace",
                 image: template.image,
                 imagePullPolicy,
-                command: [
-                  "sh",
-                  "-c",
-                  "exec /usr/local/bin/devbox-entrypoint",
-                ],
+                command: containerCommand,
                 envFrom: [{ configMapRef: { name: configMapName } }],
                 env: [{ name: "HOME", value: "/workspace/.home" }],
                 ports: [
@@ -455,16 +518,8 @@ export class KubernetesProvider {
                     memory: environment.memoryLimit,
                   },
                 },
-                readinessProbe: {
-                  exec: { command: readinessCommand(template) },
-                  initialDelaySeconds: 2,
-                  periodSeconds: 5,
-                },
-                livenessProbe: {
-                  exec: { command: readinessCommand(template) },
-                  initialDelaySeconds: 10,
-                  periodSeconds: 15,
-                },
+                readinessProbe,
+                livenessProbe,
                 volumeMounts: [
                   { name: "workspace", mountPath: "/workspace" },
                   { name: "tmp", mountPath: "/tmp" },
@@ -472,7 +527,7 @@ export class KubernetesProvider {
                 securityContext: {
                   allowPrivilegeEscalation: false,
                   capabilities: { drop: ["ALL"] },
-                  readOnlyRootFilesystem: true,
+                  readOnlyRootFilesystem: !isDevbox,
                   runAsNonRoot: true,
                   runAsUser: 10001,
                 },
@@ -491,6 +546,7 @@ export class KubernetesProvider {
         },
       },
     };
+
     const service = {
       apiVersion: "v1",
       kind: "Service",
@@ -500,7 +556,7 @@ export class KubernetesProvider {
         labels,
       },
       spec: {
-        type: "ClusterIP",
+        type: "NodePort",
         selector: labels,
         ports: [
           {
@@ -512,7 +568,6 @@ export class KubernetesProvider {
         ],
       },
     };
-
 
     const ingress = ENV.workspaceHostSuffix
       ? {
@@ -620,6 +675,7 @@ export class KubernetesProvider {
           failureReason: null,
           accessUrl: null,
           desktopUrl: null,
+          terminalUrl: null,
         };
       }
       throw new KubernetesUnavailableError(
@@ -647,6 +703,7 @@ export class KubernetesProvider {
         explainKubernetesConnectionFailure(error, server)
       );
     }
+
     const pod = pods.items[0] ?? null;
     const desiredReplicas = deployment.spec?.replicas ?? 0;
     const readyReplicas = deployment.status?.readyReplicas ?? 0;
@@ -675,6 +732,10 @@ export class KubernetesProvider {
           ? "running"
           : "provisioning";
 
+    const accessUrl = status === "running" ? workspaceAccessUrl(workspace) : null;
+    const desktopUrl = status === "running" ? workspaceDesktopUrl(workspace) : null;
+    const terminalUrl = status === "running" ? workspaceTerminalUrl(workspace) : null;
+
     return {
       status,
       health: {
@@ -688,8 +749,9 @@ export class KubernetesProvider {
       },
       podName: pod?.metadata?.name ?? null,
       failureReason,
-      accessUrl: status === "running" ? workspaceAccessUrl(workspace) : null,
-      desktopUrl: status === "running" ? workspaceDesktopUrl(workspace) : null,
+      accessUrl,
+      desktopUrl,
+      terminalUrl,
     };
   }
 
@@ -741,11 +803,6 @@ export class KubernetesProvider {
     await this.patchDeployment(objects, patch);
   }
 
-  /**
-   * Lifecycle operations change a narrow Deployment field set with a strategic
-   * merge patch. Force is deliberately undefined: Kubernetes accepts it only
-   * for server-side apply and rejects `force=false` on a non-apply PATCH.
-   */
   private async patchDeployment(
     objects: KubernetesObjectApi,
     patch: V1Deployment

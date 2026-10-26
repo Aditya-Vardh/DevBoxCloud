@@ -27,7 +27,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 const environmentIdInput = z.object({
   environmentId: z.number().int().positive(),
 });
-const runtimeValues = ["node", "python", "go", "ubuntu", "java"] as const;
+const runtimeValues = ["node", "python", "go", "ubuntu", "java", "nodejs", "react", "fullstack"] as const;
 const statusValues = [
   "provisioning",
   "running",
@@ -143,12 +143,22 @@ async function persistObservedStatus(
       status: observed.status,
       failureReason: observed.failureReason,
       accessUrl: observed.accessUrl,
+      desktopUrl: observed.desktopUrl,
+      terminalUrl: observed.terminalUrl,
     });
     await createEnvironmentEvent({
       environmentId: workspace.environment.id,
       eventType: "status_changed",
       status: observed.status,
       message: `Kubernetes confirmed this environment is ${observed.status}.`,
+    });
+  } else if (observed.status === "running" && observed.accessUrl && !workspace.environment.accessUrl) {
+    await setEnvironmentStatus({
+      environmentId: workspace.environment.id,
+      status: observed.status,
+      accessUrl: observed.accessUrl,
+      desktopUrl: observed.desktopUrl,
+      terminalUrl: observed.terminalUrl,
     });
   }
   return observed;
@@ -293,6 +303,8 @@ export const environmentRouter = router({
             environmentId,
             status: "running",
             accessUrl: observed.accessUrl,
+            desktopUrl: observed.desktopUrl,
+            terminalUrl: observed.terminalUrl,
           });
           await createEnvironmentEvent({
             environmentId,

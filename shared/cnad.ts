@@ -14,6 +14,9 @@ export const environmentRuntimes = [
   "go",
   "ubuntu",
   "java",
+  "nodejs",
+  "react",
+  "fullstack",
 ] as const;
 
 export type EnvironmentRuntime = (typeof environmentRuntimes)[number];
@@ -51,6 +54,39 @@ export const statusLabels: Record<EnvironmentStatus, string> = {
   stopped: "Stopped",
   deleted: "Deleted",
   failed: "Failed",
+};
+
+export const runtimeLabels: Record<EnvironmentRuntime, string> = {
+  ubuntu: "Ubuntu",
+  python: "Python",
+  node: "Node.js",
+  nodejs: "Node.js",
+  java: "Java",
+  react: "React",
+  fullstack: "Full Stack",
+  go: "Go",
+};
+
+export const runtimeIcons: Record<EnvironmentRuntime, string> = {
+  ubuntu: "🐧",
+  python: "🐍",
+  node: "🟩",
+  nodejs: "🟩",
+  java: "☕",
+  react: "⚛️",
+  fullstack: "🚀",
+  go: "🐹",
+};
+
+export const templateQuickStart: Record<EnvironmentRuntime, string[]> = {
+  ubuntu: ["uname -a", "git --version", "bash --version"],
+  python: ["python3 --version", "pip3 --version", "python3 -m venv .venv"],
+  node: ["node --version", "npm --version"],
+  nodejs: ["node --version", "npm --version", "npm init -y"],
+  java: ["java --version", "javac --version", "mvn --version"],
+  react: ["node --version", "npm create vite@latest my-app -- --template react"],
+  fullstack: ["node --version", "python3 --version", "java --version", "mvn --version"],
+  go: ["go version"],
 };
 
 export const dashboardNavigation = [

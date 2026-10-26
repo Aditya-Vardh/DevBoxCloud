@@ -7,6 +7,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import type { EnvironmentRuntime } from "@shared/cnad";
+import { runtimeIcons, runtimeLabels, templateQuickStart } from "@shared/cnad";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -15,8 +17,9 @@ import {
   Clipboard,
   ExternalLink,
   Loader2,
+  Monitor,
   RefreshCw,
-  TerminalSquare,
+  Terminal,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -32,14 +35,39 @@ function eventTime(value: Date | string) {
   return new Date(value).toLocaleString();
 }
 
+function QuickStartPanel({ runtime }: { runtime: EnvironmentRuntime }) {
+  const cmds = templateQuickStart[runtime] ?? [];
+  const icon = runtimeIcons[runtime] ?? "🖥";
+  const label = runtimeLabels[runtime] ?? runtime;
+  if (!cmds.length) return null;
+  return (
+    <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-lg">{icon}</span>
+        <h2 className="text-sm font-semibold text-white">{label} quick start</h2>
+      </div>
+      <div className="rounded-2xl bg-[#090b12] p-4">
+        {cmds.map((cmd, i) => (
+          <div key={i} className="flex items-baseline gap-2 font-mono text-[11px] leading-6">
+            <span className="select-none text-emerald-400">$</span>
+            <span className="text-slate-300">{cmd}</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[11px] leading-5 text-slate-500">
+        Run these in the browser terminal. Files in <code className="text-slate-400">/workspace</code> persist across restarts.
+      </p>
+    </section>
+  );
+}
+
 export default function EnvironmentDetailPage() {
   const [, params] = useRoute("/environments/:environmentId");
   const environmentId = Number(params?.environmentId);
   const [poll, setPoll] = useState(true);
   const [logsEnabled, setLogsEnabled] = useState(false);
-  const [activeTab, setActiveTab] = useState<"logs" | "events" | "audit">(
-    "logs"
-  );
+  const [activeTab, setActiveTab] = useState<"logs" | "events" | "audit">("logs");
+
   const detail = trpc.environment.detail.useQuery(
     { environmentId },
     {
@@ -83,6 +111,7 @@ export default function EnvironmentDetailPage() {
       detail.data?.kubernetes?.status ?? detail.data?.environment.status;
     setPoll(status === "provisioning");
   }, [detail.data?.environment.status, detail.data?.kubernetes?.status]);
+
   if (!Number.isInteger(environmentId))
     return (
       <CNADLayout>
@@ -112,11 +141,15 @@ export default function EnvironmentDetailPage() {
         </div>
       </CNADLayout>
     );
+
   const { environment, template, kubernetes } = detail.data;
   const kubernetesError =
     "kubernetesError" in detail.data ? detail.data.kubernetesError : undefined;
-  const openUrl = environment.accessUrl ?? kubernetes?.accessUrl;
-  const desktopUrl = kubernetes?.desktopUrl;
+
+  const accessUrl = environment.accessUrl ?? kubernetes?.accessUrl;
+  const desktopUrl = environment.desktopUrl ?? kubernetes?.desktopUrl;
+  const terminalUrl = environment.terminalUrl ?? kubernetes?.terminalUrl;
+
   const healthLabel = kubernetes?.health.deploymentAvailable
     ? "Ready"
     : environment.status === "provisioning"
@@ -137,6 +170,7 @@ export default function EnvironmentDetailPage() {
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-3">
+                <span className="text-lg">{runtimeIcons[environment.runtime as EnvironmentRuntime] ?? "🖥"}</span>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
                   {template.name}
                 </p>
@@ -146,16 +180,15 @@ export default function EnvironmentDetailPage() {
                 {environment.name}
               </h1>
               <p className="mt-2 text-sm text-slate-400">
-                {environment.description ||
-                  "No environment description provided."}
+                {environment.description || "No environment description provided."}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {openUrl ? (
-                <a href={openUrl} target="_blank" rel="noreferrer">
-                  <Button className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open environment
+            <div className="flex flex-wrap items-center gap-2">
+              {terminalUrl ? (
+                <a href={terminalUrl} target="_blank" rel="noreferrer">
+                  <Button className="bg-emerald-500 text-white hover:bg-emerald-400">
+                    <Terminal className="mr-2 h-4 w-4" />
+                    Open Terminal
                   </Button>
                 </a>
               ) : null}
@@ -165,8 +198,16 @@ export default function EnvironmentDetailPage() {
                     variant="outline"
                     className="border-cyan-300/20 text-cyan-200 hover:bg-cyan-300/10"
                   >
-                    <ExternalLink className="mr-2 h-4 w-4" />
+                    <Monitor className="mr-2 h-4 w-4" />
                     Open Desktop
+                  </Button>
+                </a>
+              ) : null}
+              {accessUrl && !terminalUrl ? (
+                <a href={accessUrl} target="_blank" rel="noreferrer">
+                  <Button className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open environment
                   </Button>
                 </a>
               ) : null}
@@ -178,6 +219,7 @@ export default function EnvironmentDetailPage() {
             </div>
           </div>
         </div>
+
         {environment.status === "provisioning" ? (
           <div className="mb-5 rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] p-4">
             <div className="flex items-start gap-3">
@@ -187,25 +229,24 @@ export default function EnvironmentDetailPage() {
                   Kubernetes provisioning in progress
                 </p>
                 <p className="mt-1 text-xs leading-5 text-amber-200/70">
-                  CNAD32 polls the actual deployment and pod readiness state.
-                  This page refreshes automatically while the environment is
-                  provisioning.
+                  The workspace pod is starting. VNC, XFCE, and nginx initialise in 30–75 seconds.
+                  This page refreshes automatically.
                 </p>
               </div>
             </div>
           </div>
         ) : null}
+
         {kubernetesError ? (
           <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.07] p-4 text-sm text-amber-100">
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              <span className="font-medium">
-                Kubernetes status is unavailable.
-              </span>{" "}
+              <span className="font-medium">Kubernetes status is unavailable.</span>{" "}
               {kubernetesError}
             </p>
           </div>
         ) : null}
+
         {environment.failureReason ? (
           <div className="mb-5 flex items-start gap-3 rounded-2xl border border-rose-300/15 bg-rose-300/[0.07] p-4 text-sm text-rose-100">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -215,6 +256,7 @@ export default function EnvironmentDetailPage() {
             </p>
           </div>
         ) : null}
+
         <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricTile
             label="Deployment health"
@@ -240,7 +282,7 @@ export default function EnvironmentDetailPage() {
             detail={
               metrics.data?.source === "metrics-api"
                 ? "Kubernetes Metrics API"
-                : "Metrics server is not available"
+                : "Metrics server not available"
             }
           />
           <MetricTile
@@ -257,16 +299,14 @@ export default function EnvironmentDetailPage() {
             }
           />
         </div>
+
         <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
           <section className="overflow-hidden rounded-3xl border border-white/[0.07] bg-[#11141f]">
             <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
               <div>
-                <h2 className="text-sm font-semibold text-white">
-                  Observability
-                </h2>
+                <h2 className="text-sm font-semibold text-white">Observability</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Logs and events come directly from Kubernetes. Audit entries
-                  are persisted by CNAD32.
+                  Logs from Kubernetes. Events from the cluster. Audit entries from CNAD32.
                 </p>
               </div>
               <Button
@@ -322,8 +362,7 @@ export default function EnvironmentDetailPage() {
                   ) : (
                     <pre className="max-h-[330px] overflow-auto rounded-2xl bg-[#090b12] p-4 font-mono text-[11px] leading-5 text-slate-300">
                       {logs.isFetching ? "Loading live pod logs…\n" : ""}
-                      {logs.data?.lines.join("\n") ||
-                        "No log lines are available yet."}
+                      {logs.data?.lines.join("\n") || "No log lines are available yet."}
                     </pre>
                   )}
                 </div>
@@ -344,16 +383,10 @@ export default function EnvironmentDetailPage() {
                       >
                         <p className="text-xs font-medium text-slate-200">
                           {event.reason}{" "}
-                          <span className="ml-2 text-slate-600">
-                            {event.type}
-                          </span>
+                          <span className="ml-2 text-slate-600">{event.type}</span>
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
-                          {event.message}
-                        </p>
-                        <p className="mt-2 text-[10px] text-slate-600">
-                          {eventTime(event.createdAt)}
-                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">{event.message}</p>
+                        <p className="mt-2 text-[10px] text-slate-600">{eventTime(event.createdAt)}</p>
                       </div>
                     ))
                   ) : (
@@ -376,29 +409,28 @@ export default function EnvironmentDetailPage() {
                         <p className="text-xs font-medium text-slate-200">
                           {entry.action.replaceAll(".", " ")}
                         </p>
-                        <p className="mt-1 text-[11px] text-slate-600">
-                          {eventTime(entry.createdAt)}
-                        </p>
+                        <p className="mt-1 text-[11px] text-slate-600">{eventTime(entry.createdAt)}</p>
                       </div>
                     ))
                   ) : (
                     <p className="text-sm text-slate-500">
-                      No audited actions have been recorded for this
-                      environment.
+                      No audited actions have been recorded for this environment.
                     </p>
                   )}
                 </div>
               ) : null}
             </div>
           </section>
+
           <aside className="space-y-5">
+            <QuickStartPanel runtime={environment.runtime as EnvironmentRuntime} />
+
             <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
-              <h2 className="text-sm font-semibold text-white">
-                Configuration
-              </h2>
+              <h2 className="text-sm font-semibold text-white">Configuration</h2>
               <div className="mt-4 space-y-3">
                 {[
-                  ["Runtime", environment.runtime],
+                  ["Runtime", `${runtimeIcons[environment.runtime as EnvironmentRuntime] ?? ""} ${runtimeLabels[environment.runtime as EnvironmentRuntime] ?? environment.runtime}`],
+                  ["Template", template.name],
                   ["CPU limit", environment.cpuLimit],
                   ["Memory limit", environment.memoryLimit],
                   ["Storage", environment.storageLimit],
@@ -411,18 +443,28 @@ export default function EnvironmentDetailPage() {
                     className="flex items-start justify-between gap-4 text-xs"
                   >
                     <span className="text-slate-500">{label}</span>
-                    <span className="break-all text-right font-medium text-slate-200">
-                      {value}
-                    </span>
+                    <span className="break-all text-right font-medium text-slate-200">{value}</span>
                   </div>
                 ))}
+                {accessUrl ? (
+                  <div className="flex items-start justify-between gap-4 text-xs">
+                    <span className="text-slate-500">Access URL</span>
+                    <a
+                      href={accessUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="break-all text-right font-medium text-cyan-300 hover:text-cyan-200"
+                    >
+                      {accessUrl}
+                    </a>
+                  </div>
+                ) : null}
               </div>
             </section>
+
             <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-white">
-                  Lifecycle history
-                </h2>
+                <h2 className="text-sm font-semibold text-white">Lifecycle history</h2>
                 <CheckCircle2 className="h-4 w-4 text-cyan-300" />
               </div>
               <div className="mt-4 space-y-4">
@@ -434,21 +476,16 @@ export default function EnvironmentDetailPage() {
                       key={event.id}
                       className="relative pl-4 before:absolute before:left-0 before:top-1.5 before:h-2 before:w-2 before:rounded-full before:bg-cyan-300"
                     >
-                      <p className="text-xs font-medium text-slate-200">
-                        {event.message}
-                      </p>
-                      <p className="mt-1 text-[10px] text-slate-600">
-                        {eventTime(event.createdAt)}
-                      </p>
+                      <p className="text-xs font-medium text-slate-200">{event.message}</p>
+                      <p className="mt-1 text-[10px] text-slate-600">{eventTime(event.createdAt)}</p>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500">
-                    No lifecycle events are available.
-                  </p>
+                  <p className="text-xs text-slate-500">No lifecycle events are available.</p>
                 )}
               </div>
             </section>
+
             {environment.repositoryUrl ? (
               <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
                 <div className="flex items-center justify-between">
@@ -457,9 +494,7 @@ export default function EnvironmentDetailPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      navigator.clipboard.writeText(
-                        environment.repositoryUrl ?? ""
-                      );
+                      navigator.clipboard.writeText(environment.repositoryUrl ?? "");
                       toast.success("Repository URL copied.");
                     }}
                     className="h-7 w-7 text-slate-500"
@@ -470,9 +505,7 @@ export default function EnvironmentDetailPage() {
                 <p className="mt-3 break-all text-xs leading-5 text-slate-400">
                   {environment.repositoryUrl}
                 </p>
-                <p className="mt-2 text-[11px] text-slate-600">
-                  Branch: {environment.branch}
-                </p>
+                <p className="mt-2 text-[11px] text-slate-600">Branch: {environment.branch}</p>
               </section>
             ) : null}
           </aside>

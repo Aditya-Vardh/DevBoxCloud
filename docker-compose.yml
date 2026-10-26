@@ -1,50 +1,58 @@
-version: '3.9'
+version: "3.9"
 
-# Local development stack: PostgreSQL + DevBox Backend
-# The frontend runs separately via: cd frontend && npm run dev
-# Kubernetes deployments go through Minikube — not Docker Compose.
+# DevBox Cloud — local development stack
+# One architecture: React/Vite client + TypeScript/Node tRPC server + MySQL
+#
+# Start: docker compose up mysql -d
+# Then:  pnpm dev   (starts the Node server which serves both API and frontend)
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    container_name: devbox-postgres
+  # ── MySQL (primary datastore) ─────────────────────────────────────────────
+  mysql:
+    image: mysql:8.4
+    container_name: devbox-mysql
     environment:
-      POSTGRES_DB: devboxdb
-      POSTGRES_USER: devbox
-      POSTGRES_PASSWORD: devbox123
+      MYSQL_ROOT_PASSWORD: devbox_root
+      MYSQL_DATABASE: devbox
+      MYSQL_USER: devbox
+      MYSQL_PASSWORD: devbox123
     ports:
-      - "5433:5432"
+      - "3306:3306"
     volumes:
-      - devbox-pgdata:/var/lib/postgresql/data
+      - devbox-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devbox -d devboxdb"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "devbox", "-pdevbox123"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
-  # ── DevBox Backend ──────────────────────────────────────────────────────────
-  backend:
+  # ── DevBox Node/tRPC server (production image) ─────────────────────────────
+  # Only used when running via docker compose — development uses `pnpm dev`
+  server:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: devbox-backend
+    container_name: devbox-server
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/devboxdb
-      DB_USERNAME: devbox
-      DB_PASSWORD: devbox123
-      K8S_NAMESPACE: devbox
-      MINIKUBE_ENABLED: "false"
+      NODE_ENV: production
+      DATABASE_URL: mysql://devbox:devbox123@mysql:3306/devbox
+      PORT: "3000"
+      # Kubernetes config — mount your kubeconfig for K8s access
+      # KUBECONFIG: /root/.kube/config
     ports:
-      - "8080:8080"
-    # Mount kubeconfig for Kubernetes access from inside the container
+      - "3000:3000"
     volumes:
-      - ${USERPROFILE}/.kube:/root/.kube:ro
+      # Mount kubeconfig if running in docker (optional)
+      # - ${USERPROFILE}/.kube:/root/.kube:ro
+      []
     restart: unless-stopped
+    profiles:
+      - production
 
 volumes:
-  devbox-pgdata:
+  devbox-mysql-data:
