@@ -12,4 +12,6 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
     Optional<Invitation> findByCode(String code);
 
     List<Invitation> findByEnvironmentIdOrderByCreatedAtDesc(UUID environmentId);
+
+    void deleteByEnvironmentId(UUID environmentId);
 }

@@ -33,6 +33,7 @@ public class Invitation {
     /** The environment this invitation provides access to. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "environment_id", nullable = false)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Environment environment;
 
     /**

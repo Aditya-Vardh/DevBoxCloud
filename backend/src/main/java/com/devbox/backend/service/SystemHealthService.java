@@ -47,7 +47,7 @@ public class SystemHealthService {
     }
 
     public String checkKubectl() {
-        return runCommand("kubectl", "version", "--client", "--short");
+        return runCommand("kubectl", "version", "--client");
     }
 
     public String checkKubernetesCluster() {

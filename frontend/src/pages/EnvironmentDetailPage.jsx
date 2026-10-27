@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { environmentApi, invitationApi, buildInviteUrl } from '../api/client'
+import { environmentApi, invitationApi, buildInviteUrl, configApi } from '../api/client'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/StatusBadge'
@@ -56,6 +56,7 @@ export function EnvironmentDetailPage() {
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState(null)
   const [showDelete, setShowDelete] = useState(false)
+  const [lanMode, setLanMode]       = useState(null)
   const pollRef = useRef(null)
 
   const { run: runStart,   loading: starting,   error: startError   } = useAsync()
@@ -66,6 +67,7 @@ export function EnvironmentDetailPage() {
 
   useEffect(() => {
     loadEnv()
+    configApi.get().then(cfg => setLanMode(cfg)).catch(() => {})
     return () => clearInterval(pollRef.current)
   }, [envId])
 
@@ -202,6 +204,15 @@ export function EnvironmentDetailPage() {
               }}>
                 💻 Terminal ↗
               </a>
+              {lanMode && !lanMode.workspaceLanMode && (
+                <div style={{
+                  fontSize: 10, color: C.amberText, background: C.amberLight,
+                  border: `1px solid ${C.amberBorder}`, borderRadius: R.sm,
+                  padding: '4px 8px', maxWidth: 180, lineHeight: 1.4, textAlign: 'center',
+                }}>
+                  ⚠ Links are localhost-only.<br/>Set DEVBOX_WORKSPACE_HOST for LAN access.
+                </div>
+              )}
             </>
           ) : env.status === 'PROVISIONING' ? (
             <div style={S.startingIndicator}>
@@ -312,8 +323,12 @@ function ShareTab({ envId }) {
   const [error, setError]         = useState(null)
   const [creating, setCreating]   = useState(false)
   const [copied, setCopied]       = useState(null)
+  const [lanMode, setLanMode]     = useState(null)
 
-  useEffect(() => { loadInvites() }, [envId])
+  useEffect(() => {
+    loadInvites()
+    configApi.get().then(setLanMode).catch(() => {})
+  }, [envId])
 
   async function loadInvites() {
     setLoading(true)
@@ -362,6 +377,18 @@ function ShareTab({ envId }) {
           Create an invitation link. Anyone with the link can view the environment's terminal and desktop URLs.
           Invitations do not grant Kubernetes administration access.
         </p>
+        {lanMode && !lanMode.workspaceLanMode && (
+          <div style={{
+            marginTop: 10, padding: '8px 12px', borderRadius: R.md,
+            background: C.amberLight, border: `1px solid ${C.amberBorder}`,
+            fontSize: 12, color: C.amberText, lineHeight: 1.5,
+          }}>
+            ⚠ <strong>LAN sharing is not active.</strong> The workspace terminal and desktop
+            URLs in this invitation use 127.0.0.1 and will only work on this machine.
+            To share with another device, restart the backend with{' '}
+            <code style={{ fontFamily: FONT.mono, fontSize: 11 }}>DEVBOX_WORKSPACE_HOST=&lt;your-LAN-IP&gt;</code>.
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>

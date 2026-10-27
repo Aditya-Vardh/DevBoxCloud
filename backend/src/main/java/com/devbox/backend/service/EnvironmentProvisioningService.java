@@ -6,6 +6,7 @@ import com.devbox.backend.dto.response.PodInfo;
 import com.devbox.backend.entity.*;
 import com.devbox.backend.exception.*;
 import com.devbox.backend.repository.EnvironmentRepository;
+import com.devbox.backend.repository.InvitationRepository;
 import com.devbox.backend.util.K8sNameUtil;
 import io.kubernetes.client.custom.IntOrString;
 import io.kubernetes.client.custom.Quantity;
@@ -56,6 +57,7 @@ public class EnvironmentProvisioningService {
     private static final int WORKSPACE_GATEWAY_PORT = 8080;
 
     private final EnvironmentRepository environmentRepository;
+    private final InvitationRepository invitationRepository;
     private final WorkspaceService workspaceService;
     private final TemplateService templateService;
     private final SystemHealthService systemHealthService;
@@ -68,12 +70,17 @@ public class EnvironmentProvisioningService {
     private boolean minikubeEnabled;
 
     /** Configurable host used in workspace access URLs.
-     *  Defaults to 127.0.0.1 (localhost).
-     *  Set to the LAN IP (e.g. 192.168.1.9) for multi-device expo demos.
-     *  The kubectl port-forward still binds on 127.0.0.1; the URL is what clients open.
+     *  Defaults to 127.0.0.1 (localhost-only).
+     *  Set DEVBOX_WORKSPACE_HOST=<LAN-IP> for multi-device access.
+     *  When non-loopback, port-forward binds on 0.0.0.0 so remote clients can reach it.
      */
     @Value("${devbox.workspace.host:127.0.0.1}")
-    private String workspaceHost;
+    private String workspaceHostRaw;
+
+    private String workspaceHost() {
+        if (workspaceHostRaw == null || workspaceHostRaw.isBlank()) return "127.0.0.1";
+        return workspaceHostRaw.trim();
+    }
 
     private final Map<UUID, Process> activeTunnels    = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> activeTunnelPorts = new ConcurrentHashMap<>();
@@ -320,6 +327,10 @@ public class EnvironmentProvisioningService {
     public void delete(UUID id) {
         Environment env = findOrThrow(id);
         cleanupTunnel(id);
+        // Delete linked invitations first to avoid FK constraint violation.
+        // The @OnDelete(CASCADE) annotation only takes effect when Hibernate
+        // re-creates the schema; on an existing DB the FK has no cascade rule.
+        invitationRepository.deleteByEnvironmentId(id);
         env.setStatus(EnvironmentStatus.DELETING);
         environmentRepository.save(env);
 
@@ -373,8 +384,8 @@ public class EnvironmentProvisioningService {
                         || env.getDesktopUrl() == null
                         || env.getTerminalUrl() == null
                         || !tunnelAlive
-                        // Re-resolve if URL host doesn't match configured workspaceHost
-                        || (!existingUrl.contains(workspaceHost) && !workspaceHost.equals("127.0.0.1")));
+                        // Re-resolve if URL host doesn't match configured workspaceHost()
+                        || (!existingUrl.contains(workspaceHost()) && !workspaceHost().equals("127.0.0.1")));
 
             if (needsUrl) {
                 log.info("Resolving access URLs for '{}' (tunnelAlive={}, existingUrl={})",
@@ -760,8 +771,8 @@ public class EnvironmentProvisioningService {
         if (existingProcess != null && existingProcess.isAlive() && existingPort != null) {
             String candidateUrl = "http://127.0.0.1:" + existingPort;
             if (isHttpReady(candidateUrl)) {
-                applyUrls(env, "http://" + workspaceHost + ":" + existingPort);
-                log.info("Reusing existing tunnel for '{}': {} (public: {})", env.getName(), candidateUrl, workspaceHost);
+                applyUrls(env, "http://" + workspaceHost() + ":" + existingPort);
+                log.info("Reusing existing tunnel for '{}': {} (public: {})", env.getName(), candidateUrl, workspaceHost());
                 return;
             }
             log.debug("Existing tunnel for '{}' on port {} alive but /healthz not yet ready",
@@ -774,15 +785,23 @@ public class EnvironmentProvisioningService {
         // 3. Find a free local port and start kubectl port-forward
         try {
             int localPort = findFreeLocalPort();
-            log.info("[tunnel] Starting kubectl port-forward for '{}': localhost:{} → svc/{} -n {} (targetPort={})",
-                    env.getName(), localPort, env.getK8sServiceName(), defaultNamespace,
-                    WORKSPACE_GATEWAY_PORT);
+            log.info("[tunnel] Starting kubectl port-forward for '{}': {}:{} → svc/{} -n {}",
+                    env.getName(), workspaceHost(), localPort, env.getK8sServiceName(), defaultNamespace);
 
-            ProcessBuilder pb = new ProcessBuilder(
-                    "kubectl", "port-forward",
+            // If workspaceHost() is not loopback, bind on all interfaces so LAN clients can reach
+            // the tunnel directly. Health checks still use 127.0.0.1 (always reachable locally).
+            List<String> cmd = new ArrayList<>(List.of("kubectl", "port-forward"));
+            if (!workspaceHost().equals("127.0.0.1") && !workspaceHost().equalsIgnoreCase("localhost")) {
+                cmd.addAll(List.of("--address", "0.0.0.0"));
+            }
+            cmd.addAll(List.of(
                     "svc/" + env.getK8sServiceName(),
                     "-n", defaultNamespace,
-                    localPort + ":" + WORKSPACE_GATEWAY_PORT);
+                    localPort + ":" + WORKSPACE_GATEWAY_PORT));
+
+            log.info("[tunnel] command: {}", String.join(" ", cmd));
+
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(true);
             Process p = pb.start();
 
@@ -824,15 +843,15 @@ public class EnvironmentProvisioningService {
             }
 
             if (ready) {
-                applyUrls(env, "http://" + workspaceHost + ":" + localPort);
+                applyUrls(env, "http://" + workspaceHost() + ":" + localPort);
                 log.info("[tunnel] Workspace '{}' ready. Port-forward on 127.0.0.1:{}, public URL: {}:{}",
-                        env.getName(), localPort, workspaceHost, localPort);
+                        env.getName(), localPort, workspaceHost(), localPort);
             } else {
                 // Set URLs anyway — workspace may still be starting.
-                applyUrls(env, "http://" + workspaceHost + ":" + localPort);
+                applyUrls(env, "http://" + workspaceHost() + ":" + localPort);
                 log.warn("[tunnel] Port-forward for '{}' on localhost:{} established, but /healthz " +
                          "did not respond OK within 45s. URL: {}:{}",
-                        env.getName(), localPort, workspaceHost, localPort);
+                        env.getName(), localPort, workspaceHost(), localPort);
             }
 
         } catch (Exception e) {

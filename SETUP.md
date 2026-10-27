@@ -1,25 +1,22 @@
-# DevBox Cloud — Startup & Demo Guide
+# DevBox Cloud — Setup, LAN Sharing & Demo Guide
 
 ## Architecture
 
 | Layer | Technology | Port |
 |-------|-----------|------|
-| Frontend | React 18 + Vite (`frontend/`) | **5173** |
-| Backend API | Spring Boot 4.1 + JPA (`backend/`) | **8080** |
+| Frontend | React 18 + Vite (`frontend/`) | 5173 |
+| Backend API | Spring Boot 4.1 (`backend/`) | 8080 |
 | Database | PostgreSQL (`devboxdb`, port 5433) | 5433 |
 | Kubernetes | minikube (`devbox` namespace) | via kubectl |
-| Workspace containers | `devbox/workspace:latest` (Ubuntu 24.04) | per pod via port-forward |
-
-> The `frontend/` Vite dev server proxies all `/api/*` to Spring Boot at 8080.  
-> The `server/` directory (tRPC/MySQL) is a **separate prototype — do not use it**.
+| Workspace containers | `devbox/workspace:latest` | per pod, via port-forward |
 
 ---
 
-## Quick Start (Every Session)
+## Normal startup (localhost only)
 
 ```powershell
-# Terminal 1 — Backend
-docker start devbox-postgres        # or: docker compose up -d
+# Terminal 1 — Backend (default: workspace URLs use 127.0.0.1)
+docker start devbox-postgres
 minikube start
 cd backend
 .\mvnw.cmd spring-boot:run
@@ -27,133 +24,167 @@ cd backend
 # Terminal 2 — Frontend
 cd frontend
 npm run dev
-
-# Open: http://localhost:5173
 ```
+
+Open: **http://localhost:5173**
 
 ---
 
-## First-Time Setup
+## LAN Sharing Startup (other devices on same Wi-Fi)
+
+The key difference: set `DEVBOX_WORKSPACE_HOST` to your Wi-Fi IP before starting the backend.
+This causes the port-forward to bind on `0.0.0.0` instead of `127.0.0.1`,
+making workspace terminal/desktop links reachable from other devices.
+
+### Step 1 — Find your Wi-Fi IP
 
 ```powershell
-# 1. Install frontend dependencies
-cd frontend ; npm install ; cd ..
-
-# 2. Build workspace image into minikube
-& minikube -p minikube docker-env --shell powershell | Invoke-Expression
-docker build -t devbox/workspace:latest ./workspace-image/
-
-# 3. Run DB migrations (PostgreSQL must be running)
-cd backend ; .\mvnw.cmd spring-boot:run   # Hibernate ddl-auto=update handles this
+Invoke-RestMethod "http://localhost:8080/api/config/lan-addresses"
+# Returns: { "addresses": ["192.168.1.9"], ... }
 ```
 
----
+Or directly:
+```powershell
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.*" -and $_.IPAddress -notlike "192.168.144.*" } |
+  Select-Object IPAddress,InterfaceAlias
+```
 
-## LAN Expo Demo (Other Devices on Same Wi-Fi)
+### Step 2 — Start backend with LAN host
 
-Both servers already bind on `0.0.0.0`. Other devices reach:
+```powershell
+cd backend
+$env:DEVBOX_WORKSPACE_HOST = "192.168.1.9"   # <-- your actual Wi-Fi IP
+.\mvnw.cmd spring-boot:run
+```
 
-| Service | URL |
-|---------|-----|
-| Frontend + Dashboard | `http://192.168.1.9:5173` |
-| Backend API | `http://192.168.1.9:8080` |
+### Step 3 — Open Windows Firewall (run as Administrator)
 
-**Open Windows Firewall (run as Administrator):**
 ```powershell
 New-NetFirewallRule -DisplayName "DevBox Frontend" -Direction Inbound -Protocol TCP -LocalPort 5173 -Action Allow -Profile Domain,Private
 New-NetFirewallRule -DisplayName "DevBox Backend"  -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow -Profile Domain,Private
 ```
 
-**Make workspace terminal/desktop URLs reachable from other devices:**
-
-By default, `accessUrl`/`terminalUrl`/`desktopUrl` use `127.0.0.1` (localhost only).  
-To make them reachable from another device, set `DEVBOX_WORKSPACE_HOST` before starting the backend:
-
+Note: Workspace terminal/desktop ports are dynamic (50000–65000 range). To allow all:
 ```powershell
-$env:DEVBOX_WORKSPACE_HOST = "192.168.1.9"
-.\mvnw.cmd spring-boot:run
+New-NetFirewallRule -DisplayName "DevBox Workspace Tunnels" -Direction Inbound -Protocol TCP -LocalPort 50000-65535 -Action Allow -Profile Domain,Private
 ```
 
-Then all new workspace URLs will use `http://192.168.1.9:<port>/terminal/` etc., which any LAN device can open.
+### Step 4 — Share the dashboard
 
-> **Note:** The `kubectl port-forward` tunnel still binds on `127.0.0.1` — only the URL returned to clients changes. Existing environments need a `/status` refresh to get new LAN URLs.
+Other devices open: **http://192.168.1.9:5173**
+
+The Vite dev server proxies API calls to the backend, so the full app works from any device.
+
+### What a friend's laptop can access
+
+After the owner creates an environment and shares an invitation:
+
+1. Friend opens `http://192.168.1.9:5173/invite/CODE`
+2. Invitation page shows environment name and template
+3. Friend clicks **Accept invitation** → redirected to environment detail
+4. Environment detail shows **Terminal ↗** link: `http://192.168.1.9:PORT/terminal/`
+5. Friend opens it → full browser terminal connected to **the same workspace pod**
+6. Both users see the same `/workspace` filesystem
+7. Desktop link: `http://192.168.1.9:PORT/desktop/vnc.html?autoconnect=true&path=websockify`
+
+### Collaborative workspace behavior
+
+- **Shared filesystem**: both users read/write the same PVC-mounted `/workspace`
+- **Separate terminal sessions**: each browser tab gets its own ttyd session (independent shell)
+- **Desktop**: noVNC connects to a single TigerVNC session — only one user controls it at a time (the VNC protocol doesn't support simultaneous independent control)
+- **Both users see live changes** to files immediately (same container filesystem)
 
 ---
 
-## Demo Flow (Expo)
+## Verify LAN mode is active
 
-1. Open `http://localhost:5173` → **Landing page** with 6 template cards
-2. Click **"Get started"** → Workspaces dashboard
-3. Open a workspace → environment cards with status badges
-4. Click **"Manage"** on any RUNNING environment → environment detail
-5. Click **"💻 Terminal ↗"** → real browser terminal (ttyd)
-6. In the terminal, run a starter command:
-   - Ubuntu: `bash /workspace/starter/welcome.sh`
-   - Python: `python3 /workspace/starter/hello.py`
-   - Java: `cd /workspace/starter && javac Hello.java && java Hello`
-   - Node.js: `node /workspace/starter/hello.js`
-7. Click **"🖥 Desktop ↗"** → XFCE desktop via noVNC
-8. Go to **🔗 Share** tab → **"+ Create link (72 hours)"** → link copied
-9. Open link in incognito → invitation page → **"Accept invitation"**
-10. Show stop/restart/start from the action bar
+```powershell
+Invoke-RestMethod "http://localhost:8080/api/config"
+# Should return: { "workspaceHost": "192.168.1.9", "workspaceLanMode": true, ... }
+```
+
+Check port-forward binding (should show 0.0.0.0 not 127.0.0.1):
+```powershell
+# After refreshing an environment status
+Get-NetTCPConnection | Where-Object { $_.LocalPort -gt 49999 -and $_.State -eq "Listen" }
+# Should show 0.0.0.0:PORT not 127.0.0.1:PORT
+```
+
+---
+
+## LAN Sharing — Actual Test Results
+
+**Tested on this machine (2026-10-27):**
+- Backend with `DEVBOX_WORKSPACE_HOST=192.168.1.9`
+- `Get-NetTCPConnection -LocalPort 57756` returned `LocalAddress=0.0.0.0` ✓
+- `Invoke-WebRequest "http://192.168.1.9:57756/terminal/"` returned HTTP 200 ✓
+- `Invoke-WebRequest "http://192.168.1.9:57756/desktop/vnc.html"` returned HTTP 200, 14.9KB ✓
+- `Invoke-WebRequest "http://192.168.1.9:5173"` returned HTTP 200 ✓
+
+**Not tested from a physically separate device** — the LAN IP is accessible from this machine's LAN interface, confirming the binding is correct. A friend's laptop on the same Wi-Fi should work the same way.
+
+**WebSocket routing**: noVNC uses `/websockify` path for WebSockets. nginx in the workspace container proxies this path to websockify:6080 which bridges to VNC. The entire path (browser → port-forward → nginx → websockify → VNC) works through the single gateway port.
+
+---
+
+## Invitation Flow
+
+1. Owner opens an environment → **🔗 Share** tab
+2. Clicks **"+ Create link (72 hours)"** → link copied to clipboard
+3. Link format: `http://192.168.1.9:5173/invite/CODE` (uses `window.location.host`)
+4. Friend opens link → sees environment name/template, clicks **Accept invitation**
+5. Backend validates invitation, increments use count, returns environment with fresh tunnel URLs
+6. Friend redirected to `/environments/ID` → sees Terminal and Desktop buttons with LAN-reachable URLs
+7. Invitation can be revoked from the Share tab → further redemption returns HTTP 400
+
+---
+
+## Startup Commands Summary
+
+```powershell
+# Localhost only
+docker start devbox-postgres ; minikube start
+cd backend ; .\mvnw.cmd spring-boot:run
+# (separate terminal)
+cd frontend ; npm run dev
+# → http://localhost:5173
+
+# LAN sharing
+docker start devbox-postgres ; minikube start
+cd backend
+$env:DEVBOX_WORKSPACE_HOST = "192.168.1.9"  # your Wi-Fi IP
+.\mvnw.cmd spring-boot:run
+# (separate terminal)
+cd frontend ; npm run dev
+# → http://192.168.1.9:5173 from any LAN device
+```
 
 ---
 
 ## Six Templates
 
-All use `devbox/workspace:latest`. The `DEVBOX_TEMPLATE_ID` env var (injected via Kubernetes ConfigMap) selects the template-specific behavior in the entrypoint.
-
-| Template | ID | Key tools | Starter files |
-|----------|----|-----------|---------------|
-| Ubuntu | `ubuntu` | bash, git, curl, vim, htop, python3 | `/workspace/starter/welcome.sh` |
-| Python | `python` | python3.12, pip3, venv, virtualenv | `/workspace/starter/hello.py` |
-| Node.js | `nodejs` | node 20, npm, npx | `/workspace/starter/hello.js` |
-| Java | `java` | OpenJDK 21, javac, Maven, Gradle | `/workspace/starter/Hello.java` |
-| React | `react` | node 20, npm, npx, vite-ready | `/workspace/starter/create-react-app.sh` |
-| Full Stack | `fullstack` | node+python+java+mvn+psql+docker | `/workspace/starter/verify.sh` |
+| Template | ID | Starter Project | Verified |
+|----------|----|-----------------|---------|
+| Ubuntu | `ubuntu` | `bash /workspace/starter/welcome.sh` | ✓ |
+| Python | `python` | `python3 /workspace/starter/hello.py` | ✓ |
+| Node.js | `nodejs` | `node /workspace/starter/hello.js` | ✓ |
+| Java | `java` | `cd /workspace/starter && javac Hello.java && java Hello` | ✓ |
+| React | `react` | `bash /workspace/starter/create-react-app.sh` | ✓ image |
+| Full Stack | `fullstack` | `bash /workspace/starter/verify.sh` | ✓ image |
 
 ---
 
-## API Endpoints
+## Remaining Limitations
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/config` | Workspace host config |
-| GET | `/api/templates` | List all 6 templates |
-| GET/POST | `/api/workspaces` | List/create workspaces |
-| GET/DELETE | `/api/workspaces/:id` | Get/delete workspace |
-| GET | `/api/workspaces/:id/environments` | List environments |
-| POST | `/api/workspaces/:id/environments` | Create environment |
-| GET | `/api/environments/:id/status` | Status + re-resolve port-forward |
-| POST | `/api/environments/:id/start` | Start stopped environment |
-| POST | `/api/environments/:id/stop` | Stop running environment |
-| POST | `/api/environments/:id/restart` | Restart (rolling) |
-| DELETE | `/api/environments/:id` | Delete environment + K8s resources |
-| POST | `/api/environments/:id/invitations` | Create invite link |
-| GET | `/api/environments/:id/invitations` | List invitations |
-| DELETE | `/api/invitations/:id` | Revoke invitation |
-| GET | `/api/invitations/info/:code` | Validate invite (public) |
-| POST | `/api/invitations/redeem/:code` | Redeem invite |
+1. **Physical two-device test**: Not performed from a separate physical laptop. The socket binding (`0.0.0.0`) and reachability via LAN IP were verified from the same machine using the LAN interface. A friend's laptop on the same Wi-Fi should work identically.
 
----
+2. **Dynamic port firewall**: Each workspace gets a fresh port from the ephemeral range (~50000-65535). Windows Firewall needs to allow this range for LAN access. The rule above covers it.
 
-## Troubleshooting
+3. **Desktop sharing**: noVNC/TigerVNC supports one active desktop session. Two users CAN connect but will share control of the same mouse/keyboard. This is a VNC protocol limitation, not a DevBox limitation.
 
-**Port 8080 in use:**
-```powershell
-Get-Process -Id (netstat -ano | Select-String ":8080 .*LISTEN" | ForEach-Object { $_.Line.Trim().Split()[-1] }) -ErrorAction SilentlyContinue | Stop-Process -Force
-```
+4. **No user authentication**: Backend is open — any caller can create/delete environments. Appropriate for a trusted LAN demo; not production-ready.
 
-**Terminal/Desktop URLs 404 after backend restart:**
-Call `GET /api/environments/:id/status` — this re-establishes the `kubectl port-forward` tunnel.
+5. **minikube port-forward persistence**: Tunnels are lost when the backend restarts. Call `GET /api/environments/:id/status` to re-establish them.
 
-**Minikube won't start:**
-```powershell
-minikube stop ; minikube start
-```
-
-**Pods in Error state after minikube restart:**
-```powershell
-kubectl delete pods -n devbox --field-selector status.phase=Failed
-```
-Wait ~30s for the deployment controller to recreate them.
+6. **Internet (public) access**: Requires a tunnel (cloudflared, ngrok, etc.) or cloud K8s cluster. Not implemented.
