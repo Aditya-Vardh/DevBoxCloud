@@ -35,46 +35,53 @@ export default function EnvironmentsPage() {
     [deferredSearch, runtime, status]
   );
   const environments = trpc.environment.list.useQuery(input);
+
   return (
     <CNADLayout>
       <section>
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="animate-fade-up mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/25">
               Fleet
             </p>
-            <h1 className="text-3xl font-semibold tracking-[-0.045em] text-white">
+            <h1 className="text-3xl font-bold tracking-[-0.04em] text-white">
               Environments
             </h1>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-white/40">
               Search, inspect, and operate Kubernetes-backed development
               workspaces.
             </p>
           </div>
           <Link href="/app/environments/new">
-            <Button className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button
+              id="environments-new"
+              className="rounded-full bg-white text-sm font-semibold text-black hover:bg-white/90"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
               New environment
             </Button>
           </Link>
         </div>
-        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-[#11141f] p-3 sm:flex-row">
+
+        <div className="animate-fade-up delay-100 mb-5 flex flex-col gap-2.5 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-600" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
             <Input
               value={search}
-              onChange={event => setSearch(event.target.value)}
-              placeholder="Search environments"
-              className="border-white/10 bg-white/[0.035] pl-9 text-white placeholder:text-slate-600"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search environments…"
+              className="h-10 rounded-xl border-white/[0.07] bg-white/[0.03] pl-10 text-white placeholder:text-white/20 focus:border-white/15 focus:bg-white/[0.04]"
+              aria-label="Search environments"
             />
           </div>
           <select
             value={status}
-            onChange={event => setStatus(event.target.value as typeof status)}
-            className="h-10 rounded-lg border border-white/10 bg-[#161a26] px-3 text-sm text-slate-300"
+            onChange={(event) => setStatus(event.target.value as typeof status)}
+            className="h-10 rounded-xl border border-white/[0.07] bg-[#0a0a0a] px-3 text-sm text-white/60 outline-none transition-colors hover:border-white/15 focus:border-white/15"
+            aria-label="Filter by status"
           >
             <option value="all">All states</option>
-            {statuses.slice(1).map(value => (
+            {statuses.slice(1).map((value) => (
               <option key={value} value={value}>
                 {value}
               </option>
@@ -82,36 +89,38 @@ export default function EnvironmentsPage() {
           </select>
           <select
             value={runtime}
-            onChange={event => setRuntime(event.target.value as typeof runtime)}
-            className="h-10 rounded-lg border border-white/10 bg-[#161a26] px-3 text-sm text-slate-300"
+            onChange={(event) => setRuntime(event.target.value as typeof runtime)}
+            className="h-10 rounded-xl border border-white/[0.07] bg-[#0a0a0a] px-3 text-sm text-white/60 outline-none transition-colors hover:border-white/15 focus:border-white/15"
+            aria-label="Filter by runtime"
           >
             <option value="all">All runtimes</option>
-            {runtimes.slice(1).map(value => (
+            {runtimes.slice(1).map((value) => (
               <option key={value} value={value}>
                 {runtimeLabels[value as EnvironmentRuntime] ?? value}
               </option>
             ))}
           </select>
         </div>
-        <div className="overflow-hidden rounded-3xl border border-white/[0.07] bg-[#11141f]">
+
+        <div className="animate-fade-up delay-150 overflow-hidden rounded-2xl border border-white/[0.06]">
           {environments.isLoading ? (
-            <div className="space-y-3 p-5">
-              {[1, 2, 3].map(item => (
-                <Skeleton key={item} className="h-16 bg-white/[0.05]" />
+            <div className="space-y-px p-1">
+              {[1, 2, 3].map((item) => (
+                <Skeleton key={item} className="h-16 bg-white/[0.03]" />
               ))}
             </div>
           ) : environments.error ? (
-            <p className="p-6 text-sm text-rose-200">
+            <p className="p-6 text-sm text-rose-300">
               {environments.error.message}
             </p>
           ) : environments.data?.length ? (
-            <div className="divide-y divide-white/[0.06]">
+            <div className="divide-y divide-white/[0.04]">
               {environments.data.map(({ environment, template }) => (
                 <div
                   key={environment.id}
-                  className="flex flex-col gap-3 p-4 transition-colors hover:bg-white/[0.025] sm:flex-row sm:items-center"
+                  className="flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.025] sm:flex-row sm:items-center"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-base">
                     {runtimeIcons[environment.runtime as EnvironmentRuntime] ?? "🖥"}
                   </span>
                   <Link
@@ -121,7 +130,7 @@ export default function EnvironmentsPage() {
                     <p className="text-sm font-medium text-white">
                       {environment.name}
                     </p>
-                    <p className="mt-1 truncate text-xs text-slate-500">
+                    <p className="mt-0.5 truncate text-xs text-white/30">
                       {template.name} · {environment.cpuLimit} CPU ·{" "}
                       {environment.memoryLimit} memory ·{" "}
                       {environment.storageLimit} storage
@@ -138,18 +147,18 @@ export default function EnvironmentsPage() {
               ))}
             </div>
           ) : (
-            <div className="p-12 text-center">
-              <Boxes className="mx-auto h-7 w-7 text-slate-600" />
-              <p className="mt-4 text-sm font-medium text-slate-200">
+            <div className="p-14 text-center">
+              <Boxes className="mx-auto h-7 w-7 text-white/10" />
+              <p className="mt-4 text-sm font-medium text-white/50">
                 No matching environments
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-white/25">
                 Change your filters or create a new workspace.
               </p>
               <Link href="/app/environments/new">
                 <Button
                   size="sm"
-                  className="mt-5 bg-indigo-400 text-indigo-950 hover:bg-indigo-300"
+                  className="mt-5 rounded-full bg-white text-xs font-semibold text-black hover:bg-white/90"
                 >
                   Create environment
                 </Button>

@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { cn } from "@/lib/utils";import {
+import { cn } from "@/lib/utils";
+import {
   Activity,
+  ArrowRight,
   Boxes,
   ChevronRight,
   CircleUserRound,
-  Command,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";import {
   ServerCog,
   Settings,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -38,12 +40,30 @@ const primaryNavigation = [
 ];
 
 function initials(name?: string | null) {
-  return (name ?? "CN")
+  return (name ?? "DV")
     .split(" ")
-    .map(part => part[0])
+    .map((part) => part[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function DevBoxMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+    >
+      <rect width="32" height="32" rx="7" fill="white" />
+      <rect x="7" y="7" width="8" height="8" rx="1.5" fill="#050505" />
+      <rect x="17" y="7" width="8" height="8" rx="1.5" fill="#050505" />
+      <rect x="7" y="17" width="8" height="8" rx="1.5" fill="#050505" opacity="0.4" />
+      <rect x="17" y="17" width="8" height="8" rx="1.5" fill="#050505" />
+    </svg>
+  );
 }
 
 export function LoginScreen() {
@@ -51,35 +71,35 @@ export function LoginScreen() {
   const loginMode = trpc.auth.loginMode.useQuery();
   const [loginError, setLoginError] = useState<string | null>(null);
   const localLogin = trpc.auth.localLogin.useMutation({
-    onSuccess: async result => {
+    onSuccess: async (result) => {
       setLoginError(null);
       utils.auth.me.setData(undefined, result.user);
       await utils.auth.me.invalidate();
       window.location.assign("/app");
     },
-    onError: error => {
+    onError: (error) => {
       setLoginError(error.message || "The local session could not be created.");
     },
   });
   const isLocal = loginMode.data?.mode === "local";
   const hostedOAuthConfigured = loginMode.data?.hostedOAuthConfigured ?? false;
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090b12] p-6 text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(86,95,255,.16),transparent_32%),radial-gradient(circle_at_80%_80%,rgba(11,212,166,.10),transparent_26%)]" />
-      <section className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#11141f]/90 p-8 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-cyan-300 text-[#0b0d15] shadow-lg shadow-indigo-500/25">
-            <Command className="h-6 w-6" />
-          </div>
-          <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">← Back to home</Link>
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505] p-6 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(255,255,255,0.03),transparent_50%)]" />
+      <section className="animate-scale-in relative w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#0d0d0d] p-8 sm:p-10">
+        <div className="mb-6 flex items-center justify-between">
+          <DevBoxMark size={32} />
+          <Link href="/" className="text-xs text-white/30 hover:text-white/60 transition-colors">
+            ← Back
+          </Link>
         </div>
-        <p className="mb-3 text-sm font-medium text-cyan-200">
-          DevBox Cloud · Developer workspaces
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/30">
+          DevBox Cloud
         </p>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em]">
+        <h1 className="text-2xl font-bold tracking-[-0.03em] text-white">
           Sign in to your account
         </h1>
-        <p className="mt-4 text-sm leading-6 text-slate-400">
+        <p className="mt-3 text-sm leading-6 text-white/40">
           {isLocal
             ? "Development mode: create a local operator session."
             : hostedOAuthConfigured
@@ -93,7 +113,8 @@ export function LoginScreen() {
             localLogin.isPending ||
             (!isLocal && !hostedOAuthConfigured)
           }
-          className="mt-9 h-11 w-full bg-white text-slate-950 hover:bg-slate-200"
+          id="login-submit"
+          className="mt-8 h-11 w-full rounded-full bg-white text-sm font-semibold text-black hover:bg-white/90"
         >
           {localLogin.isPending
             ? "Starting local session…"
@@ -107,15 +128,15 @@ export function LoginScreen() {
         {loginError ? (
           <p
             role="alert"
-            className="mt-4 rounded-xl border border-rose-300/20 bg-rose-300/10 p-3 text-sm leading-5 text-rose-100"
+            className="mt-4 rounded-xl border border-rose-300/15 bg-rose-300/[0.07] p-3 text-sm leading-5 text-rose-200"
           >
             {loginError}
           </p>
         ) : null}
-        <p className="mt-6 text-center text-xs text-slate-600">
-          Don't have an account?{" "}
-          <Link href="/" className="text-cyan-400 hover:text-cyan-300">
-            Learn more about DevBox Cloud
+        <p className="mt-6 text-center text-xs text-white/25">
+          New to DevBox?{" "}
+          <Link href="/" className="text-white/50 hover:text-white transition-colors">
+            Learn more
           </Link>
         </p>
       </section>
@@ -130,7 +151,7 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#090b12] text-slate-300">
+      <div className="flex min-h-screen items-center justify-center bg-[#050505] text-white/40">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     );
@@ -147,42 +168,44 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#090b12] text-slate-100">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_72%_-10%,rgba(85,94,255,.12),transparent_28%)]" />
+    <div className="min-h-screen bg-[#050505] text-white">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col border-r border-white/[0.07] bg-[#0e1019]/95 p-4 backdrop-blur-xl transition-transform lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-white/[0.06] bg-[#050505] p-5 transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Link href="/app" className="mb-8 flex items-center gap-3 px-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-cyan-300 text-[#0a0c13] shadow-lg shadow-indigo-500/20">
-            <Command className="h-4 w-4" />
-          </span>
+        <Link href="/app" className="mb-8 flex items-center gap-2.5 px-1">
+          <DevBoxMark size={26} />
           <span>
-            <span className="block text-sm font-semibold tracking-[0.16em] text-white">
-              CNAD32
+            <span className="block text-sm font-bold tracking-tight text-white">
+              DevBox Cloud
             </span>
-            <span className="block text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-white/25">
               Workspace control
             </span>
           </span>
         </Link>
+
         <Link
           href="/app/environments/new"
           onClick={() => setMobileOpen(false)}
-          className="mb-7"
+          className="mb-6"
         >
-          <Button className="h-10 w-full bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
-            <Plus className="mr-2 h-4 w-4" />
-            New environment
+          <Button
+            id="sidebar-new-env"
+            className="h-9 w-full rounded-full bg-white text-sm font-semibold text-black hover:bg-white/90"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New workspace
           </Button>
         </Link>
-        <nav className="space-y-1">
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+
+        <nav className="space-y-0.5" aria-label="Application navigation">
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
             Workspace
           </p>
-          {navigation.map(item => {
+          {navigation.map((item) => {
             const active =
               item.href === "/app"
                 ? location === "/app"
@@ -193,19 +216,20 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
+                  "group flex h-9 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
                   active
-                    ? "bg-white/[0.09] text-white shadow-sm"
-                    : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
+                    ? "bg-white/[0.07] text-white"
+                    : "text-white/40 hover:bg-white/[0.04] hover:text-white/80"
                 )}
               >
                 <item.icon
                   className={cn(
-                    "h-4 w-4",
+                    "h-4 w-4 shrink-0 transition-colors",
                     active
-                      ? "text-cyan-300"
-                      : "text-slate-500 group-hover:text-slate-300"
+                      ? "text-white"
+                      : "text-white/30 group-hover:text-white/60"
                   )}
                 />
                 {item.label}
@@ -213,88 +237,107 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
             );
           })}
         </nav>
-        <div className="mt-auto rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
-          <p className="text-xs font-medium text-slate-300">
-            Environment isolation
-          </p>
-          <p className="mt-1 text-[11px] leading-4 text-slate-500">
-            Namespaces, quotas, probes, and audit events are enforced
-            server-side.
-          </p>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="mt-3 flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
-              <Avatar className="h-8 w-8 border border-white/10">
-                <AvatarFallback className="bg-indigo-400/15 text-xs text-indigo-200">
-                  {initials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium text-slate-200">
-                  {user.name || "Workspace user"}
+
+        <div className="mt-auto">
+          <div className="mb-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+            <p className="text-xs font-medium text-white/50">
+              Environment isolation
+            </p>
+            <p className="mt-1 text-[11px] leading-4 text-white/25">
+              Namespaces, quotas, probes, and audit events are enforced
+              server-side.
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                aria-label="User menu"
+              >
+                <Avatar className="h-7 w-7 border border-white/10">
+                  <AvatarFallback className="bg-white/10 text-xs font-semibold text-white">
+                    {initials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-medium text-white/80">
+                    {user.name || "Workspace user"}
+                  </span>
+                  <span className="block truncate text-[10px] text-white/30">
+                    {user.role}
+                  </span>
                 </span>
-                <span className="block truncate text-[11px] text-slate-500">
-                  {user.role}
-                </span>
-              </span>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-52 border-white/10 bg-[#181b27] text-slate-200"
-            align="start"
-          >
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <CircleUserRound className="mr-2 h-4 w-4" />
-                Profile settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-white/10" />
-            <DropdownMenuItem
-              onClick={() => void logout()}
-              className="text-rose-300 focus:text-rose-200"
+                <ChevronRight className="h-3.5 w-3.5 text-white/25" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-52 border-white/10 bg-[#111111] text-white/80"
+              align="start"
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <CircleUserRound className="mr-2 h-4 w-4" />
+                  Profile settings
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/[0.07]" />
+              <DropdownMenuItem
+                onClick={() => void logout()}
+                className="text-rose-300 focus:text-rose-200"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </aside>
-      <div className="relative min-h-screen lg:pl-[264px]">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/[0.06] bg-[#090b12]/80 px-4 backdrop-blur-xl lg:px-8">
+
+      <div className="relative min-h-screen lg:pl-[248px]">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/[0.05] bg-[#050505]/90 px-4 backdrop-blur-xl lg:px-8">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(true)}
-            className="text-slate-300 lg:hidden"
+            className="text-white/40 hover:text-white lg:hidden"
+            aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="hidden text-xs text-slate-500 lg:block">
+          <div className="hidden text-xs text-white/20 lg:block">
             Kubernetes-backed developer environments
           </div>
-        <Link href="/app/environments/new">
+          <Link href="/app/environments/new">
             <Button
               size="sm"
-              className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300"
+              id="header-create"
+              className="rounded-full bg-white text-xs font-semibold text-black hover:bg-white/90"
             >
-              <Plus className="mr-1.5 h-4 w-4" />
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               Create
             </Button>
           </Link>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
+        <main className="mx-auto w-full max-w-[1600px] p-5 sm:p-7 lg:p-9">
           {children}
         </main>
       </div>
+
       {mobileOpen ? (
-        <button
-          aria-label="Close navigation"
-          onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-30 bg-black/55 lg:hidden"
-        />
+        <>
+          <button
+            aria-label="Close navigation"
+            onClick={() => setMobileOpen(false)}
+            className="fixed inset-0 z-30 bg-black/70 lg:hidden"
+          />
+          <button
+            aria-label="Close navigation"
+            onClick={() => setMobileOpen(false)}
+            className="fixed right-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#111111] text-white/60 hover:text-white lg:hidden"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </>
       ) : null}
     </div>
   );

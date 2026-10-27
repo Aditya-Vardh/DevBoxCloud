@@ -3,7 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DevBox</title>
+    <meta name="theme-color" content="#080806" />
+    <meta name="description" content="DevBox Cloud — Kubernetes-backed development environments. Browser terminal and XFCE desktop in seconds." />
+    <title>DevBox Cloud</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('devbox-theme')
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+          }
+          document.documentElement.setAttribute('data-theme', t)
+          document.documentElement.style.background = t === 'light' ? '#f3efe6' : '#080806'
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark')
+        }
+      })()
+    </script>
+    <style>html,body{margin:0;background:inherit;}</style>
   </head>
   <body>
     <div id="root"></div>

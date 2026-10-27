@@ -1,51 +1,27 @@
-import { STATUS_META, C } from '../theme'
+import { C, R, STATUS_META } from '../theme'
 
-/**
- * Unified StatusBadge — works for both EnvironmentStatus and DeploymentStatus.
- *
- * Props:
- *   status  — string key matching STATUS_META in theme.js
- *   dot     — boolean, show pulsing dot before label (default: true)
- *   style   — extra inline style overrides
- */
 export function StatusBadge({ status, dot = true, style }) {
-  const meta = STATUS_META[status] || { label: status ?? '—', dot: C.faint, bg: C.bgSubtle, text: C.muted }
-  const isPulsing = status === 'PROVISIONING' || status === 'BUILDING' || status === 'DEPLOYING' || status === 'DELETING'
+  const m = STATUS_META[status] ?? { label: status ?? '—', dot: C.faint, bg: C.chip, text: C.muted }
+  const pulsing = ['PROVISIONING','BUILDING','DEPLOYING','DELETING'].includes(status)
 
   return (
     <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 5,
-      padding: '3px 8px',
-      borderRadius: 9999,
-      background: meta.bg,
-      color: meta.text,
-      fontSize: 12,
-      fontWeight: 600,
-      letterSpacing: '0.01em',
-      whiteSpace: 'nowrap',
-      lineHeight: 1.4,
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 8px', borderRadius: R.pill,
+      background: m.bg, color: m.text,
+      fontSize: 11, fontWeight: 600, letterSpacing: '0.01em',
+      whiteSpace: 'nowrap', lineHeight: 1.4,
+      border: `1px solid ${C.border}`,
       ...style,
     }}>
       {dot && (
         <span style={{
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: meta.dot,
-          flexShrink: 0,
-          animation: isPulsing ? 'pulse 1.4s ease-in-out infinite' : 'none',
+          width: 5, height: 5, borderRadius: '50%',
+          background: m.dot, flexShrink: 0,
+          animation: pulsing ? 'pulse 1.4s ease-in-out infinite' : 'none',
         }} />
       )}
-      {meta.label}
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(0.8); }
-        }
-      `}</style>
+      {m.label}
     </span>
   )
 }

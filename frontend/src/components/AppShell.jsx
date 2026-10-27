@@ -1,65 +1,81 @@
 import { Link, useLocation } from 'react-router-dom'
-import { C, R, SHADOW } from '../theme'
-
-const NAV_LINKS = [
-  { to: '/workspaces', label: 'Workspaces' },
-]
+import { C, R, FONT } from '../theme'
+import { BrandMark } from './BrandMark'
+import { ThemeToggle } from './ThemeToggle'
 
 export function AppShell({ children }) {
-  const location = useLocation()
+  const { pathname } = useLocation()
+  const inWorkspaces = pathname.startsWith('/workspaces') || pathname.startsWith('/environments') || pathname.startsWith('/applications')
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bgSurface }}>
-      <nav style={S.nav}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: FONT.sans, color: C.body }}>
+      <nav className="lp-nav" role="navigation" aria-label="Main navigation" style={{ height: 60 }}>
         <div style={S.navInner}>
-          <Link to="/" style={S.brand}>
-            <span style={S.brandMark}>⬡</span>
+          <Link to="/" style={S.brand} aria-label="DevBox Cloud home">
+            <BrandMark size={18} />
             <span style={S.brandName}>DevBox</span>
           </Link>
-          <div style={S.navLinks}>
-            {NAV_LINKS.map(link => {
-              const active = location.pathname.startsWith(link.to)
-              return (
-                <Link key={link.to} to={link.to} style={{
-                  ...S.navLink,
-                  color: active ? C.primary : C.body,
-                  fontWeight: active ? 600 : 400,
-                }}>
-                  {link.label}
-                </Link>
-              )
-            })}
+
+          <div style={S.navCenter}>
+            <NavLink to="/workspaces" active={inWorkspaces}>Workspaces</NavLink>
+          </div>
+
+          <div style={S.navRight}>
+            <ThemeToggle />
+            <Link to="/workspaces" className="cta-ink" style={S.navCta}>Open app</Link>
           </div>
         </div>
       </nav>
-      <main style={S.main}>{children}</main>
+
+      <main style={{ minHeight: 'calc(100vh - 60px)' }}>
+        {children}
+      </main>
     </div>
   )
 }
 
+function NavLink({ to, active, children }) {
+  return (
+    <Link to={to} style={{ ...S.navLink, color: active ? C.ink : C.muted }}>
+      {children}
+      {active && <span style={S.activeBar} />}
+    </Link>
+  )
+}
+
 const S = {
-  nav: {
-    position: 'sticky', top: 0, zIndex: 40,
-    background: 'rgba(255,255,255,0.95)',
-    backdropFilter: 'blur(8px)',
-    borderBottom: `1px solid ${C.border}`,
-    boxShadow: SHADOW.sm,
-  },
   navInner: {
-    maxWidth: 1100, margin: '0 auto', padding: '0 20px',
-    height: 52, display: 'flex', alignItems: 'center', gap: 20,
+    maxWidth: 1180, margin: '0 auto', padding: '0 28px',
+    height: '100%', display: 'flex', alignItems: 'center',
   },
   brand: {
-    display: 'flex', alignItems: 'center', gap: 7,
-    textDecoration: 'none', marginRight: 8,
+    display: 'flex', alignItems: 'center', gap: 9,
+    textDecoration: 'none', flexShrink: 0, marginRight: 32,
   },
-  brandMark: { fontSize: 18, color: C.primary, lineHeight: 1 },
-  brandName: { fontWeight: 800, fontSize: 15, color: C.ink, letterSpacing: '-0.01em' },
-  navLinks: { display: 'flex', alignItems: 'center', gap: 4 },
+  brandName: {
+    fontSize: 13, fontWeight: 700, color: C.ink,
+    letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: FONT.sans,
+  },
+  navCenter: { display: 'flex', alignItems: 'center', gap: 2, flex: 1 },
   navLink: {
-    padding: '5px 10px', borderRadius: R.md,
-    fontSize: 13, textDecoration: 'none', color: C.body,
-    transition: 'background 0.12s',
+    position: 'relative',
+    padding: '6px 10px', borderRadius: R.md,
+    fontSize: 13, fontWeight: 500, textDecoration: 'none',
+    fontFamily: FONT.sans,
   },
-  main: { minHeight: 'calc(100vh - 52px)' },
+  activeBar: {
+    position: 'absolute', bottom: -16, left: '50%',
+    transform: 'translateX(-50%)',
+    width: 16, height: 1,
+    background: C.ink, display: 'block',
+  },
+  navRight: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 },
+  navCta: {
+    padding: '7px 14px', borderRadius: R.pill,
+    background: C.ink, color: C.inverse,
+    fontSize: 12, fontWeight: 700,
+    textDecoration: 'none', letterSpacing: '0.01em',
+    fontFamily: FONT.sans, lineHeight: 1,
+    border: 'none', cursor: 'pointer',
+  },
 }

@@ -1,18 +1,37 @@
-import { Spinner } from './Spinner'
 import { C, R } from '../theme'
+import { Spinner } from './Spinner'
 
-/**
- * Reusable Button component.
- *
- * Props:
- *   variant  — 'primary' | 'secondary' | 'ghost' | 'danger'  (default: 'secondary')
- *   size     — 'sm' | 'md' | 'lg'  (default: 'md')
- *   loading  — boolean, shows spinner and disables
- *   loadingLabel — text shown while loading (default: same as children)
- *   disabled — boolean
- *   icon     — string/JSX prepended to label
- *   onClick, type, style, className, etc. — forwarded
- */
+const VARIANTS = {
+  primary: {
+    background: C.ink, color: C.inverse, border: 'none',
+  },
+  secondary: {
+    background: 'transparent', color: C.body,
+    border: `1px solid ${C.borderStrong}`,
+  },
+  ghost: {
+    background: 'transparent', color: C.muted, border: '1px solid transparent',
+  },
+  danger: {
+    background: 'transparent', color: C.red,
+    border: `1px solid ${C.redBorder}`,
+  },
+  'danger-solid': {
+    background: C.red, color: '#fff', border: 'none',
+  },
+}
+
+const SIZES = {
+  sm: { padding: '6px 12px', fontSize: 12, borderRadius: R.md },
+  md: { padding: '8px 16px', fontSize: 13, borderRadius: R.lg },
+  lg: { padding: '11px 22px', fontSize: 14, borderRadius: R.lg },
+}
+
+const DISABLED = {
+  background: C.bgSubtle, color: C.faint,
+  border: `1px solid ${C.border}`, opacity: 0.5,
+}
+
 export function Button({
   variant = 'secondary',
   size = 'md',
@@ -24,68 +43,33 @@ export function Button({
   style,
   ...props
 }) {
-  const isDisabled = disabled || loading
-
-  const base = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    border: 'none',
-    borderRadius: R.md,
-    fontWeight: 500,
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    whiteSpace: 'nowrap',
-    userSelect: 'none',
-    flexShrink: 0,
-    ...SIZE_STYLES[size],
-  }
-
-  const variantStyle = isDisabled
-    ? DISABLED_STYLE
-    : VARIANT_STYLES[variant] || VARIANT_STYLES.secondary
+  const off = disabled || loading
+  const vStyle = off ? DISABLED : (VARIANTS[variant] ?? VARIANTS.secondary)
 
   return (
     <button
-      disabled={isDisabled}
-      style={{ ...base, ...variantStyle, ...style }}
+      disabled={off}
+      data-variant={off ? undefined : variant}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        gap: 6, fontFamily: 'inherit', fontWeight: 600,
+        cursor: off ? 'not-allowed' : 'pointer',
+        whiteSpace: 'nowrap', userSelect: 'none', flexShrink: 0,
+        letterSpacing: '-0.01em',
+        transition: 'background 0.18s, color 0.18s, border-color 0.18s, opacity 0.18s',
+        lineHeight: 1.4,
+        ...SIZES[size],
+        ...vStyle,
+        ...style,
+      }}
       {...props}
     >
       {loading
-        ? <Spinner size={size === 'sm' ? 12 : size === 'lg' ? 16 : 14}
-                   color={variant === 'primary' || variant === 'danger' ? '#fff' : C.primary} />
+        ? <Spinner size={size === 'lg' ? 15 : 13} color={variant === 'primary' ? C.inverse : C.body} />
         : icon
-        ? <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>
+        ? <span style={{ display: 'inline-flex', lineHeight: 1 }}>{icon}</span>
         : null}
       <span>{loading ? (loadingLabel ?? children) : children}</span>
     </button>
   )
-}
-
-const SIZE_STYLES = {
-  sm: { padding: '4px 10px',  fontSize: 12, lineHeight: '18px', borderRadius: R.sm },
-  md: { padding: '7px 14px',  fontSize: 13, lineHeight: '20px', borderRadius: R.md },
-  lg: { padding: '10px 20px', fontSize: 14, lineHeight: '22px', borderRadius: R.lg },
-}
-
-const VARIANT_STYLES = {
-  primary: {
-    background: C.primary, color: '#fff', border: 'none',
-  },
-  secondary: {
-    background: C.bg, color: C.body, border: `1px solid ${C.borderStrong}`,
-  },
-  ghost: {
-    background: 'transparent', color: C.muted, border: '1px solid transparent',
-  },
-  danger: {
-    background: C.redLight, color: C.red, border: `1px solid ${C.redBorder}`,
-  },
-  'danger-solid': {
-    background: C.red, color: '#fff', border: 'none',
-  },
-}
-
-const DISABLED_STYLE = {
-  background: C.bgSubtle, color: C.faint, border: `1px solid ${C.border}`,
 }

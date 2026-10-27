@@ -1,97 +1,58 @@
-import { TEMPLATE_ACCENT, C, R } from '../theme'
+import { TEMPLATE_ACCENT, C, R, FONT } from '../theme'
 
-/**
- * TemplateCard — selectable template button in the New Environment modal.
- *
- * Props: template, selected (bool), onSelect(template)
- */
 export function TemplateCard({ template, selected, onSelect }) {
-  const accent = TEMPLATE_ACCENT[template.id] || TEMPLATE_ACCENT.ubuntu
+  const a = TEMPLATE_ACCENT[template.id] ?? TEMPLATE_ACCENT.ubuntu
 
-  // Show only meaningful tool badges (skip infrastructure-level ones)
   const SKIP = new Set(['xfce4', 'tigervnc', 'novnc', 'ttyd', 'nano', 'less', 'procps'])
-  const tools = (template.installedTools || '')
-    .split(',')
-    .map(t => t.trim())
+  const tools = (template.installedTools ?? '')
+    .split(',').map(t => t.trim())
     .filter(t => t && !SKIP.has(t))
-    .slice(0, 8)  // cap to avoid overflow
+    .slice(0, 6)
 
   return (
     <button
       onClick={() => onSelect(template)}
       aria-pressed={selected}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        padding: '14px',
-        borderRadius: R.lg,
-        border: selected
-          ? `2px solid ${accent.color}`
-          : `1px solid ${C.border}`,
-        background: selected ? accent.bg : C.bg,
-        cursor: 'pointer',
-        textAlign: 'left',
-        width: '100%',
-        minHeight: 160,
-        boxSizing: 'border-box',
-        outline: 'none',
-        boxShadow: selected ? `0 0 0 3px ${accent.border}` : 'none',
-        transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+        padding: '16px',
+        border: selected ? `1px solid ${C.borderStrong}` : `1px solid ${C.border}`,
+        borderRadius: R.xl,
+        background: selected ? C.hover : 'transparent',
+        cursor: 'pointer', textAlign: 'left', width: '100%',
+        minHeight: 150, boxSizing: 'border-box',
+        fontFamily: FONT.sans, outline: 'none',
+        transition: 'border-color 0.18s, background 0.18s',
       }}
+      onMouseEnter={e => { if (!selected) { e.currentTarget.style.borderColor = C.borderStrong; e.currentTarget.style.background = C.hover } }}
+      onMouseLeave={e => { if (!selected) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = 'transparent' } }}
     >
-      {/* Icon + name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, width: '100%' }}>
         <span style={{
-          fontSize: 20, lineHeight: 1, flexShrink: 0,
-          width: 34, height: 34,
-          background: selected ? accent.color : C.bgSubtle,
-          borderRadius: R.sm,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'background 0.12s',
-        }}>
-          {template.icon}
-        </span>
-        <span style={{ fontWeight: 700, fontSize: 13, color: C.ink, lineHeight: 1.25 }}>
+          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+          background: a.color,
+        }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: '-0.01em' }}>
           {template.displayName}
         </span>
       </div>
 
-      {/* Category */}
-      <span style={{
-        display: 'inline-block', padding: '1px 7px', borderRadius: R.full,
-        background: selected ? accent.color : C.bgSubtle,
-        color: selected ? '#fff' : C.muted,
-        fontSize: 10, fontWeight: 600, marginBottom: 7,
-        letterSpacing: '0.02em',
-        transition: 'background 0.12s, color 0.12s',
-      }}>
+      <span style={{ fontSize: 11, color: C.muted, marginBottom: 2, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         {template.category}
       </span>
 
-      {/* Description */}
       <span style={{
-        fontSize: 11, color: selected ? C.body : C.muted,
-        lineHeight: 1.5, marginBottom: 8, flexGrow: 1,
-        display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
+        fontSize: 12, color: C.muted, lineHeight: 1.55, marginBottom: 12, flexGrow: 1,
+        display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
       }}>
         {template.description}
       </span>
 
-      {/* Tool badges */}
       {tools.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 'auto' }}>
-          {tools.map(tool => (
-            <span key={tool} style={{
-              padding: '1px 5px', borderRadius: R.sm,
-              background: selected ? accent.border : C.bgSubtle,
-              color: selected ? accent.color : C.faint,
-              fontSize: 9, fontWeight: 600,
-              fontFamily: 'monospace', letterSpacing: '0.01em',
-              whiteSpace: 'nowrap',
-            }}>
-              {tool}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {tools.map(t => (
+            <span key={t} className="chip" style={{ fontFamily: FONT.mono, fontSize: 10, letterSpacing: '0.01em' }}>
+              {t}
             </span>
           ))}
         </div>

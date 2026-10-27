@@ -15,27 +15,32 @@ import {
 
 const statusConfig: Record<
   EnvironmentStatus,
-  { label: string; className: string }
+  { label: string; dotClass: string; className: string }
 > = {
   provisioning: {
     label: "Provisioning",
-    className: "border-amber-300/15 bg-amber-300/10 text-amber-200",
+    dotClass: "bg-amber-400 animate-pulse",
+    className: "border-amber-400/20 bg-amber-400/[0.08] text-amber-300",
   },
   running: {
     label: "Running",
-    className: "border-emerald-300/15 bg-emerald-300/10 text-emerald-200",
+    dotClass: "bg-emerald-400",
+    className: "border-emerald-400/20 bg-emerald-400/[0.08] text-emerald-300",
   },
   stopped: {
     label: "Stopped",
-    className: "border-slate-300/15 bg-slate-300/10 text-slate-300",
+    dotClass: "bg-white/30",
+    className: "border-white/10 bg-white/[0.04] text-white/50",
   },
   deleted: {
     label: "Deleted",
-    className: "border-slate-500/15 bg-slate-500/10 text-slate-500",
+    dotClass: "bg-white/15",
+    className: "border-white/[0.06] bg-white/[0.02] text-white/25",
   },
   failed: {
     label: "Needs attention",
-    className: "border-rose-300/15 bg-rose-300/10 text-rose-200",
+    dotClass: "bg-rose-400 animate-pulse",
+    className: "border-rose-400/20 bg-rose-400/[0.08] text-rose-300",
   },
 };
 
@@ -49,7 +54,7 @@ export function StatusBadge({ status }: { status: EnvironmentStatus }) {
         config.className
       )}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      <span className={cn("h-1.5 w-1.5 rounded-full", config.dotClass)} />
       {config.label}
     </Badge>
   );
@@ -80,28 +85,28 @@ export function EnvironmentActionMenu({
       toast.success("Start request accepted by Kubernetes.");
       await refresh();
     },
-    onError: error => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const stop = trpc.environment.stop.useMutation({
     onSuccess: async () => {
       toast.success("Stop request accepted by Kubernetes.");
       await refresh();
     },
-    onError: error => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const restart = trpc.environment.restart.useMutation({
     onSuccess: async () => {
       toast.success("Restart request accepted by Kubernetes.");
       await refresh();
     },
-    onError: error => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const remove = trpc.environment.delete.useMutation({
     onSuccess: async () => {
       toast.success("Kubernetes cleanup confirmed.");
       await refresh();
     },
-    onError: error => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
   const busy =
     start.isPending || stop.isPending || restart.isPending || remove.isPending;
@@ -113,36 +118,46 @@ export function EnvironmentActionMenu({
           variant="ghost"
           size="icon"
           disabled={busy}
-          className="h-8 w-8 text-slate-400 hover:bg-white/[0.08] hover:text-white"
+          className="h-8 w-8 rounded-lg text-white/30 hover:bg-white/[0.06] hover:text-white"
+          aria-label="Environment actions"
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-48 border-white/10 bg-[#181b27] text-slate-200"
+        className="w-48 border-white/[0.08] bg-[#0f0f0f] text-white/70"
       >
         {status === "stopped" ? (
-          <DropdownMenuItem onClick={() => start.mutate({ environmentId })}>
-            <Play className="mr-2 h-4 w-4 text-emerald-300" />
+          <DropdownMenuItem
+            onClick={() => start.mutate({ environmentId })}
+            className="hover:text-white focus:text-white"
+          >
+            <Play className="mr-2 h-4 w-4 text-emerald-400" />
             Start
           </DropdownMenuItem>
         ) : null}
         {status === "running" ? (
-          <DropdownMenuItem onClick={() => stop.mutate({ environmentId })}>
-            <Square className="mr-2 h-4 w-4 text-amber-300" />
+          <DropdownMenuItem
+            onClick={() => stop.mutate({ environmentId })}
+            className="hover:text-white focus:text-white"
+          >
+            <Square className="mr-2 h-4 w-4 text-amber-400" />
             Stop
           </DropdownMenuItem>
         ) : null}
         {status === "running" ? (
-          <DropdownMenuItem onClick={() => restart.mutate({ environmentId })}>
-            <RefreshCw className="mr-2 h-4 w-4 text-cyan-300" />
+          <DropdownMenuItem
+            onClick={() => restart.mutate({ environmentId })}
+            className="hover:text-white focus:text-white"
+          >
+            <RefreshCw className="mr-2 h-4 w-4 text-sky-400" />
             Restart
           </DropdownMenuItem>
         ) : null}
         {status !== "deleted" ? (
           <>
-            <DropdownMenuSeparator className="bg-white/10" />
+            <DropdownMenuSeparator className="bg-white/[0.07]" />
             <DropdownMenuItem
               onClick={() => {
                 if (
@@ -152,7 +167,7 @@ export function EnvironmentActionMenu({
                 )
                   remove.mutate({ environmentId });
               }}
-              className="text-rose-300 focus:text-rose-200"
+              className="text-rose-400 focus:text-rose-300"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete environment
@@ -174,12 +189,12 @@ export function MetricTile({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-white">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <p className="text-xs text-white/35">{label}</p>
+      <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-white">
         {value}
       </p>
-      <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
+      <p className="mt-1 text-[11px] text-white/25">{detail}</p>
     </div>
   );
 }
