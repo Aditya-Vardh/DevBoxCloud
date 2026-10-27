@@ -38,7 +38,16 @@ export function WorkspaceDetailPage() {
   const { run: runCreateApp, loading: creatingApp, error: createAppError } = useAsync()
   const { run: runDelete } = useAsync()
 
-  useEffect(() => { loadAll() }, [workspaceId])
+  useEffect(() => {
+    loadAll()
+    // Refresh every 8s if any env is provisioning
+    const timer = setInterval(() => {
+      environmentApi.listByWorkspace(workspaceId)
+        .then(envs => setEnvironments(envs))
+        .catch(() => {})
+    }, 8000)
+    return () => clearInterval(timer)
+  }, [workspaceId])
 
   async function loadAll() {
     setLoading(true)
@@ -115,7 +124,7 @@ export function WorkspaceDetailPage() {
 
       {/* Breadcrumb */}
       <div style={S.breadcrumb}>
-        <Link to="/" style={S.breadcrumbLink}>Workspaces</Link>
+        <Link to="/workspaces" style={S.breadcrumbLink}>Workspaces</Link>
         <span style={S.breadcrumbSep}>/</span>
         <span style={{ color: C.body, fontWeight: 500 }}>{workspace?.name}</span>
       </div>
@@ -301,7 +310,7 @@ function EnvironmentCard({ env, onManage, onDelete }) {
   const isReady = env.status === 'RUNNING' && !!env.accessUrl
 
   return (
-    <div style={{ ...S.envCard, borderTop: `3px solid ${accent.color}` }}>
+    <div style={{ ...S.envCard, borderTop: `3px solid ${accent.color}` }} className="card-hover">
 
       {/* Header: icon + name + status */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>

@@ -14,6 +14,7 @@ import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { adminRouter } from "./routers/admin";
 import { environmentRouter } from "./routers/environments";
+import { inviteRouter } from "./routers/invite";
 
 export const appRouter = router({
   system: systemRouter,
@@ -89,6 +90,7 @@ export const appRouter = router({
   }),
   environment: environmentRouter,
   admin: adminRouter,
+  invite: inviteRouter,
 });
 
 export type AppRouter = typeof appRouter;

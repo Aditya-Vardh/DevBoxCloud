@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { cn } from "@/lib/utils";
-import {
+import { cn } from "@/lib/utils";import {
   Activity,
   Boxes,
   ChevronRight,
@@ -32,10 +31,10 @@ import { Link, useLocation } from "wouter";
 type CNADLayoutProps = { children: React.ReactNode };
 
 const primaryNavigation = [
-  { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Environments", href: "/environments", icon: Boxes },
-  { label: "Templates", href: "/templates", icon: ServerCog },
-  { label: "Activity", href: "/activity", icon: Activity },
+  { label: "Overview", href: "/app", icon: LayoutDashboard },
+  { label: "Environments", href: "/app/environments", icon: Boxes },
+  { label: "Templates", href: "/app/templates", icon: ServerCog },
+  { label: "Activity", href: "/app/activity", icon: Activity },
 ];
 
 function initials(name?: string | null) {
@@ -56,7 +55,7 @@ export function LoginScreen() {
       setLoginError(null);
       utils.auth.me.setData(undefined, result.user);
       await utils.auth.me.invalidate();
-      window.location.assign("/");
+      window.location.assign("/app");
     },
     onError: error => {
       setLoginError(error.message || "The local session could not be created.");
@@ -68,22 +67,24 @@ export function LoginScreen() {
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#090b12] p-6 text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(86,95,255,.16),transparent_32%),radial-gradient(circle_at_80%_80%,rgba(11,212,166,.10),transparent_26%)]" />
       <section className="relative w-full max-w-md rounded-3xl border border-white/10 bg-[#11141f]/90 p-8 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-10">
-        <div className="mb-9 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-cyan-300 text-[#0b0d15] shadow-lg shadow-indigo-500/25">
-          <Command className="h-6 w-6" />
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-cyan-300 text-[#0b0d15] shadow-lg shadow-indigo-500/25">
+            <Command className="h-6 w-6" />
+          </div>
+          <Link href="/" className="text-xs text-slate-500 hover:text-slate-300">← Back to home</Link>
         </div>
         <p className="mb-3 text-sm font-medium text-cyan-200">
-          CNAD32 · Cloud-native workspaces
+          DevBox Cloud · Developer workspaces
         </p>
         <h1 className="text-3xl font-semibold tracking-[-0.04em]">
-          A focused control plane for developer environments.
+          Sign in to your account
         </h1>
         <p className="mt-4 text-sm leading-6 text-slate-400">
           {isLocal
-            ? "This localhost development instance creates a signed session for the local operator. Hosted deployments use OAuth for authentication."
+            ? "Development mode: create a local operator session."
             : hostedOAuthConfigured
-              ? "Authenticate with your account to create and operate isolated Kubernetes-backed workspaces."
-              : "Hosted OAuth is not configured for this deployment. Run the development server on localhost to use the local development session."}
-
+              ? "Sign in with your account to access your workspaces."
+              : "Configure OAuth or run locally to authenticate."}
         </p>
         <Button
           onClick={() => (isLocal ? localLogin.mutate() : startLogin())}
@@ -97,11 +98,10 @@ export function LoginScreen() {
           {localLogin.isPending
             ? "Starting local session…"
             : isLocal
-              ? "Continue on this computer"
+              ? "Continue as local operator"
               : hostedOAuthConfigured
-                ? "Continue"
-
-                : "Hosted OAuth unavailable"}
+                ? "Continue with OAuth"
+                : "OAuth not configured"}
           <ChevronRight className="ml-1 h-4 w-4" />
         </Button>
         {loginError ? (
@@ -112,6 +112,12 @@ export function LoginScreen() {
             {loginError}
           </p>
         ) : null}
+        <p className="mt-6 text-center text-xs text-slate-600">
+          Don't have an account?{" "}
+          <Link href="/" className="text-cyan-400 hover:text-cyan-300">
+            Learn more about DevBox Cloud
+          </Link>
+        </p>
       </section>
     </main>
   );
@@ -135,9 +141,9 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
   const navigation = [
     ...primaryNavigation,
     ...(user.role === "admin"
-      ? [{ label: "Platform", href: "/platform", icon: ShieldCheck }]
+      ? [{ label: "Platform", href: "/app/platform", icon: ShieldCheck }]
       : []),
-    { label: "Settings", href: "/settings", icon: Settings },
+    { label: "Settings", href: "/app/settings", icon: Settings },
   ];
 
   return (
@@ -149,7 +155,7 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Link href="/" className="mb-8 flex items-center gap-3 px-2">
+        <Link href="/app" className="mb-8 flex items-center gap-3 px-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-cyan-300 text-[#0a0c13] shadow-lg shadow-indigo-500/20">
             <Command className="h-4 w-4" />
           </span>
@@ -163,7 +169,7 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
           </span>
         </Link>
         <Link
-          href="/environments/new"
+          href="/app/environments/new"
           onClick={() => setMobileOpen(false)}
           className="mb-7"
         >
@@ -178,8 +184,8 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
           </p>
           {navigation.map(item => {
             const active =
-              item.href === "/"
-                ? location === "/"
+              item.href === "/app"
+                ? location === "/app"
                 : location === item.href ||
                   location.startsWith(`${item.href}/`);
             return (
@@ -269,7 +275,7 @@ export default function CNADLayout({ children }: CNADLayoutProps) {
           <div className="hidden text-xs text-slate-500 lg:block">
             Kubernetes-backed developer environments
           </div>
-          <Link href="/environments/new">
+        <Link href="/app/environments/new">
             <Button
               size="sm"
               className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300"

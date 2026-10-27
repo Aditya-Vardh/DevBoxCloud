@@ -15,6 +15,20 @@
       "when": 1786796980083,
       "tag": "0001_demonic_silver_sable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1793020695312,
+      "tag": "0002_long_expediter",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1793021744926,
+      "tag": "0003_lying_orphan",
+      "breakpoints": true
     }
   ]
 }

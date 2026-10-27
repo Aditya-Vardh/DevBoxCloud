@@ -16,6 +16,8 @@ const EnvironmentsPage = lazy(() => import("./pages/Environments"));
 const PlatformPage = lazy(() => import("./pages/Platform"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const TemplatesPage = lazy(() => import("./pages/Templates"));
+const LandingPage = lazy(() => import("./pages/Landing"));
+const InvitePage = lazy(() => import("./pages/Invite"));
 
 type GuardedRouteProps = {
   children: React.ReactNode;
@@ -71,20 +73,34 @@ const ProtectedSettingsPage = protect(SettingsPage);
 const ProtectedTemplatesPage = protect(TemplatesPage);
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Suspense fallback={<RouteLoading />}>
       <Switch>
-        <Route path={"/"} component={ProtectedHome} />
-        <Route path={"/environments"} component={ProtectedEnvironmentsPage} />
+        {/* Public landing page */}
+        <Route path={"/"} component={LandingPage} />
+        {/* Login screen */}
+        <Route path={"/login"} component={LoginScreen} />
+        {/* Invite redemption (public) */}
+        <Route path={"/invite/:code"} component={InvitePage} />
+        {/* App routes (auth-gated, under /app prefix) */}
+        <Route path={"/app"} component={ProtectedHome} />
+        <Route path={"/app/environments"} component={ProtectedEnvironmentsPage} />
         <Route
-          path={"/environments/new"}
+          path={"/app/environments/new"}
           component={ProtectedEnvironmentCreate}
         />
         <Route
-          path={"/environments/:environmentId"}
+          path={"/app/environments/:environmentId"}
           component={ProtectedEnvironmentDetailPage}
         />
+        <Route path={"/app/templates"} component={ProtectedTemplatesPage} />
+        <Route path={"/app/activity"} component={ProtectedActivityPage} />
+        <Route path={"/app/platform"} component={ProtectedPlatformPage} />
+        <Route path={"/app/settings"} component={ProtectedSettingsPage} />
+        {/* Legacy routes redirect to /app equivalents */}
+        <Route path={"/environments"} component={ProtectedEnvironmentsPage} />
+        <Route path={"/environments/new"} component={ProtectedEnvironmentCreate} />
+        <Route path={"/environments/:environmentId"} component={ProtectedEnvironmentDetailPage} />
         <Route path={"/templates"} component={ProtectedTemplatesPage} />
         <Route path={"/activity"} component={ProtectedActivityPage} />
         <Route path={"/platform"} component={ProtectedPlatformPage} />

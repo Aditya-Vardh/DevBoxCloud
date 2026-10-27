@@ -17,6 +17,7 @@ public class WorkspaceResponse {
     private Instant createdAt;
     private Instant updatedAt;
     private int applicationCount;
+    private int environmentCount;
 
     public static WorkspaceResponse from(Workspace w) {
         return WorkspaceResponse.builder()
@@ -26,6 +27,10 @@ public class WorkspaceResponse {
                 .createdAt(w.getCreatedAt())
                 .updatedAt(w.getUpdatedAt())
                 .applicationCount(w.getApplications() != null ? w.getApplications().size() : 0)
+                .environmentCount(w.getEnvironments() != null ?
+                    (int) w.getEnvironments().stream()
+                        .filter(e -> e.getStatus() != com.devbox.backend.entity.EnvironmentStatus.DELETED)
+                        .count() : 0)
                 .build();
     }
 }

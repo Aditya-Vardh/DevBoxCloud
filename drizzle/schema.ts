@@ -182,3 +182,53 @@ export type Environment = typeof environments.$inferSelect;
 export type InsertEnvironment = typeof environments.$inferInsert;
 export type EnvironmentEvent = typeof environmentEvents.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+
+// ── Workspace invitations ──────────────────────────────────────────────────
+export const invitations = mysqlTable(
+  "invitations",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    code: varchar("code", { length: 64 }).notNull().unique(),
+    environmentId: int("environmentId")
+      .notNull()
+      .references(() => environments.id, { onDelete: "cascade" }),
+    ownerUserId: int("ownerUserId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // null = unlimited uses; positive integer = max redemptions
+    maxUses: int("maxUses"),
+    useCount: int("useCount").default(0).notNull(),
+    revoked: mysqlEnum("revoked", ["true", "false"]).default("false").notNull(),
+    expiresAt: timestamp("expiresAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("invitations_env_idx").on(table.environmentId),
+    index("invitations_owner_idx").on(table.ownerUserId),
+  ]
+);
+
+// Tracks who has redeemed an invitation and received access
+export const invitationRedemptions = mysqlTable(
+  "invitation_redemptions",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    invitationId: int("invitationId")
+      .notNull()
+      .references(() => invitations.id, { onDelete: "cascade" }),
+    userId: int("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    redeemedAt: timestamp("redeemedAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("invitation_redemptions_unique").on(
+      table.invitationId,
+      table.userId
+    ),
+  ]
+);
+
+export type Invitation = typeof invitations.$inferSelect;
+export type InsertInvitation = typeof invitations.$inferInsert;
+export type InvitationRedemption = typeof invitationRedemptions.$inferSelect;

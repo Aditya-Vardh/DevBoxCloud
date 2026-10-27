@@ -13,9 +13,9 @@ function isLoopbackAddress(address: string | undefined) {
 
 export function isLocalAuthRequest(req: Request) {
   const host = req.hostname.toLowerCase();
-  return (
-    process.env.NODE_ENV !== "production" &&
-    LOCAL_HOSTS.has(host) &&
-    isLoopbackAddress(req.socket.remoteAddress)
-  );
+  // Allow loopback (localhost) connections
+  if (LOCAL_HOSTS.has(host) && isLoopbackAddress(req.socket.remoteAddress)) {
+    return process.env.NODE_ENV !== "production";
+  }
+  return false;
 }

@@ -64,6 +64,12 @@ public class EnvironmentController {
         return ResponseEntity.ok(provisioningService.stop(id));
     }
 
+    /** POST /api/environments/:id/restart — rolling restart of the deployment */
+    @PostMapping("/api/environments/{id}/restart")
+    public ResponseEntity<EnvironmentResponse> restart(@PathVariable UUID id) {
+        return ResponseEntity.ok(provisioningService.restart(id));
+    }
+
     // ── Observability ─────────────────────────────────────────────────────────
 
     /** GET /api/environments/:id/status */

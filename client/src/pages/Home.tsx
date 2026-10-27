@@ -7,6 +7,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { runtimeIcons } from "@shared/cnad";
+import type { EnvironmentRuntime } from "@shared/cnad";
 import {
   Activity,
   ArrowUpRight,
@@ -53,7 +55,7 @@ export default function Home() {
             health, and retain an auditable operating history.
           </p>
         </div>
-        <Link href="/environments/new">
+        <Link href="/app/environments/new">
           <Button className="h-10 bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
             <Plus className="mr-2 h-4 w-4" />
             New environment
@@ -96,7 +98,7 @@ export default function Home() {
               </p>
             </div>
             <Link
-              href="/environments"
+              href="/app/environments"
               className="flex items-center gap-1 text-xs text-cyan-300 hover:text-cyan-200"
             >
               View all <ArrowUpRight className="h-3.5 w-3.5" />
@@ -119,8 +121,8 @@ export default function Home() {
                   key={environment.id}
                   className="flex items-center gap-3 rounded-2xl border border-transparent bg-white/[0.025] p-3 transition-colors hover:border-white/[0.07] hover:bg-white/[0.045]"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-300/10 text-indigo-200">
-                    <TerminalSquare className="h-4 w-4" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-300/10 text-lg">
+                    {runtimeIcons[environment.runtime as EnvironmentRuntime] ?? "🖥"}
                   </span>
                   <Link
                     href={`/environments/${environment.id}`}
@@ -153,7 +155,7 @@ export default function Home() {
               <p className="mt-1 text-xs text-slate-500">
                 Create your first Kubernetes-backed workspace to begin.
               </p>
-              <Link href="/environments/new">
+              <Link href="/app/environments/new">
                 <Button
                   size="sm"
                   className="mt-4 bg-indigo-400 text-indigo-950 hover:bg-indigo-300"

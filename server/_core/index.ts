@@ -37,6 +37,28 @@ async function startServer() {
   app.use(securityHeaders);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ limit: "1mb", extended: true }));
+
+  // CORS for local network access (development only)
+  if (process.env.NODE_ENV !== "production") {
+    app.use((_req, res, next) => {
+      const allowedOrigins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        // Allow any local network device
+        ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(",") : []),
+      ];
+      const origin = _req.headers.origin;
+      if (origin && (allowedOrigins.includes(origin) || /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) || /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin) || /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d+\.\d+(:\d+)?$/.test(origin))) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+        res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+      }
+      if (_req.method === "OPTIONS") { res.status(204).end(); return; }
+      next();
+    });
+  }
+
   app.get("/healthz", (_req, res) => res.status(200).json({ status: "ok" }));
   registerStorageProxy(app);
   app.use("/api/oauth", rateLimit(15 * 60_000, 30, "oauth"));
@@ -64,8 +86,9 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${port}/`);
+    console.log(`Local network: http://<your-ip>:${port}/`);
   });
 }
 

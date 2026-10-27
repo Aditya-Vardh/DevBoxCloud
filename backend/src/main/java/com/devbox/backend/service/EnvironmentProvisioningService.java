@@ -67,6 +67,14 @@ public class EnvironmentProvisioningService {
     @Value("${devbox.kubernetes.minikube:true}")
     private boolean minikubeEnabled;
 
+    /** Configurable host used in workspace access URLs.
+     *  Defaults to 127.0.0.1 (localhost).
+     *  Set to the LAN IP (e.g. 192.168.1.9) for multi-device expo demos.
+     *  The kubectl port-forward still binds on 127.0.0.1; the URL is what clients open.
+     */
+    @Value("${devbox.workspace.host:127.0.0.1}")
+    private String workspaceHost;
+
     private final Map<UUID, Process> activeTunnels    = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> activeTunnelPorts = new ConcurrentHashMap<>();
 
@@ -253,8 +261,62 @@ public class EnvironmentProvisioningService {
         return EnvironmentResponse.from(env);
     }
 
-    // ── DELETE ────────────────────────────────────────────────────────────────
+    // ── RESTART ───────────────────────────────────────────────────────────────
 
+    public EnvironmentResponse restart(UUID id) {
+        Environment env = findOrThrow(id);
+
+        if (!systemHealthService.isKubernetesAvailable()) {
+            throw new KubernetesException("Kubernetes is not reachable. Start Minikube and try again.");
+        }
+        if (env.getStatus() != EnvironmentStatus.RUNNING && env.getStatus() != EnvironmentStatus.FAILED) {
+            throw new BadRequestException("Only RUNNING or FAILED environments can be restarted.");
+        }
+
+        // Restart = scale-to-0 then back-to-1, which is reliable across all K8s versions
+        try {
+            AppsV1Api appsApi = kubernetesClientService.appsApi();
+            V1Deployment existing = appsApi
+                    .readNamespacedDeployment(env.getK8sDeploymentName(), defaultNamespace)
+                    .execute();
+            // Scale to 0
+            existing.getSpec().setReplicas(0);
+            appsApi.replaceNamespacedDeployment(env.getK8sDeploymentName(), defaultNamespace, existing).execute();
+            // Re-read to get latest resourceVersion (required for replace to avoid 409 Conflict)
+            Thread.sleep(500);
+            V1Deployment current = appsApi
+                    .readNamespacedDeployment(env.getK8sDeploymentName(), defaultNamespace)
+                    .execute();
+            // Scale back to 1 with restart annotation
+            current.getSpec().setReplicas(1);
+            if (current.getSpec().getTemplate().getMetadata() == null) {
+                current.getSpec().getTemplate().metadata(new V1ObjectMeta());
+            }
+            current.getSpec().getTemplate().getMetadata()
+                    .putAnnotationsItem("devbox.io/restartedAt", Instant.now().toString());
+            appsApi.replaceNamespacedDeployment(env.getK8sDeploymentName(), defaultNamespace, current).execute();
+            log.info("Restart triggered for environment '{}' via scale-0/scale-1", env.getName());
+        } catch (ApiException e) {
+            String body = e.getResponseBody();
+            throw new KubernetesException("Restart failed (HTTP " + e.getCode() + "): "
+                    + (body != null && !body.isBlank() ? body : e.getMessage()), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new KubernetesException("Restart interrupted", e);
+        }
+
+        cleanupTunnel(env.getId());
+        env.setStatus(EnvironmentStatus.PROVISIONING);
+        env.setFailureReason(null);
+        env.setAccessUrl(null);
+        env.setDesktopUrl(null);
+        env.setTerminalUrl(null);
+        environmentRepository.save(env);
+        log.info("Restarting environment '{}' ({})", env.getName(), env.getId());
+        return EnvironmentResponse.from(env);
+    }
+
+    // ── DELETE ────────────────────────────────────────────────────────────────
     public void delete(UUID id) {
         Environment env = findOrThrow(id);
         cleanupTunnel(id);
@@ -310,7 +372,9 @@ public class EnvironmentProvisioningService {
                         || existingUrl.contains("172.")
                         || env.getDesktopUrl() == null
                         || env.getTerminalUrl() == null
-                        || !tunnelAlive);
+                        || !tunnelAlive
+                        // Re-resolve if URL host doesn't match configured workspaceHost
+                        || (!existingUrl.contains(workspaceHost) && !workspaceHost.equals("127.0.0.1")));
 
             if (needsUrl) {
                 log.info("Resolving access URLs for '{}' (tunnelAlive={}, existingUrl={})",
@@ -696,8 +760,8 @@ public class EnvironmentProvisioningService {
         if (existingProcess != null && existingProcess.isAlive() && existingPort != null) {
             String candidateUrl = "http://127.0.0.1:" + existingPort;
             if (isHttpReady(candidateUrl)) {
-                applyUrls(env, candidateUrl);
-                log.info("Reusing existing tunnel for '{}': {}", env.getName(), candidateUrl);
+                applyUrls(env, "http://" + workspaceHost + ":" + existingPort);
+                log.info("Reusing existing tunnel for '{}': {} (public: {})", env.getName(), candidateUrl, workspaceHost);
                 return;
             }
             log.debug("Existing tunnel for '{}' on port {} alive but /healthz not yet ready",
@@ -760,16 +824,15 @@ public class EnvironmentProvisioningService {
             }
 
             if (ready) {
-                applyUrls(env, candidateUrl);
-                log.info("[tunnel] Workspace '{}' ready at {} (desktop: {}/desktop/vnc.html)",
-                        env.getName(), candidateUrl, candidateUrl);
+                applyUrls(env, "http://" + workspaceHost + ":" + localPort);
+                log.info("[tunnel] Workspace '{}' ready. Port-forward on 127.0.0.1:{}, public URL: {}:{}",
+                        env.getName(), localPort, workspaceHost, localPort);
             } else {
-                // Set the URLs anyway — the workspace may still be starting.
-                // The frontend will show a "preparing" state and the user can retry.
-                applyUrls(env, candidateUrl);
+                // Set URLs anyway — workspace may still be starting.
+                applyUrls(env, "http://" + workspaceHost + ":" + localPort);
                 log.warn("[tunnel] Port-forward for '{}' on localhost:{} established, but /healthz " +
-                         "did not respond OK within 45s. The workspace gateway may still be starting. " +
-                         "URL: {}", env.getName(), localPort, candidateUrl);
+                         "did not respond OK within 45s. URL: {}:{}",
+                        env.getName(), localPort, workspaceHost, localPort);
             }
 
         } catch (Exception e) {

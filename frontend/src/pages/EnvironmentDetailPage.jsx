@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { environmentApi } from '../api/client'
+import { environmentApi, invitationApi, buildInviteUrl } from '../api/client'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/StatusBadge'
@@ -58,10 +58,11 @@ export function EnvironmentDetailPage() {
   const [showDelete, setShowDelete] = useState(false)
   const pollRef = useRef(null)
 
-  const { run: runStart,  loading: starting,  error: startError  } = useAsync()
-  const { run: runStop,   loading: stopping,  error: stopError   } = useAsync()
-  const { run: runDelete, loading: deleting,  error: deleteError } = useAsync()
-  const { run: runLogs,   loading: logsLoading } = useAsync()
+  const { run: runStart,   loading: starting,   error: startError   } = useAsync()
+  const { run: runStop,    loading: stopping,   error: stopError    } = useAsync()
+  const { run: runRestart, loading: restarting, error: restartError } = useAsync()
+  const { run: runDelete,  loading: deleting,   error: deleteError  } = useAsync()
+  const { run: runLogs,    loading: logsLoading } = useAsync()
 
   useEffect(() => {
     loadEnv()
@@ -95,6 +96,10 @@ export function EnvironmentDetailPage() {
   }
   async function handleStop() {
     const res = await runStop(environmentApi.stop(envId))
+    if (res) setEnv(res)
+  }
+  async function handleRestart() {
+    const res = await runRestart(environmentApi.restart(envId))
     if (res) setEnv(res)
   }
   async function handleDelete() {
@@ -145,7 +150,7 @@ export function EnvironmentDetailPage() {
 
       {/* Breadcrumb */}
       <div style={S.breadcrumb}>
-        <Link to="/" style={S.bcLink}>Workspaces</Link>
+        <Link to="/workspaces" style={S.bcLink}>Workspaces</Link>
         <span style={S.bcSep}>/</span>
         <Link to={`/workspaces/${env.workspaceId}`} style={S.bcLink}>{env.workspaceName}</Link>
         <span style={S.bcSep}>/</span>
@@ -245,30 +250,34 @@ export function EnvironmentDetailPage() {
         <Button variant="primary" loading={starting} loadingLabel="Starting…"
           disabled={!canStart || starting} onClick={handleStart}
           style={{ background: canStart && !starting ? C.green : undefined }}>
-          Start
+          ▶ Start
         </Button>
         <Button variant="secondary" loading={stopping} loadingLabel="Stopping…"
           disabled={!canStop || stopping} onClick={handleStop}>
-          Stop
+          ■ Stop
+        </Button>
+        <Button variant="secondary" loading={restarting} loadingLabel="Restarting…"
+          disabled={env.status !== 'RUNNING' || restarting} onClick={handleRestart}>
+          ↺ Restart
         </Button>
         <Button variant="ghost" onClick={refreshStatus}>
-          ↻ Refresh
+          ⟳ Refresh
         </Button>
         <Button variant="danger" style={{ marginLeft: 'auto' }}
           onClick={() => setShowDelete(true)} disabled={deleting}>
-          {deleting ? <><Spinner size={13} /> Deleting…</> : 'Delete Environment'}
+          {deleting ? <><Spinner size={13} /> Deleting…</> : 'Delete'}
         </Button>
       </div>
 
-      <ErrorMessage error={startError || stopError || deleteError} />
+      <ErrorMessage error={startError || stopError || restartError || deleteError} />
 
       {/* ── Tabs ───────────────────────────────────────────────────────────────── */}
       <div style={S.tabs}>
-        {['overview', 'quick start', 'pods', 'logs'].map(tab => (
+        {['overview', 'quick start', 'share', 'pods', 'logs'].map(tab => (
           <button key={tab}
             style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
             onClick={() => setActiveTab(tab)}>
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === 'share' ? '🔗 Share' : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -276,6 +285,7 @@ export function EnvironmentDetailPage() {
       <div style={S.tabContent}>
         {activeTab === 'overview'     && <OverviewTab env={env} accent={accent} showTech={showTech} setShowTech={setShowTech} />}
         {activeTab === 'quick start'  && <QuickStartTab cmds={quickStartCmds} templateName={env.templateName} />}
+        {activeTab === 'share'        && <ShareTab envId={envId} />}
         {activeTab === 'pods'         && <PodsTab pods={pods} onRefresh={fetchPods} />}
         {activeTab === 'logs'         && <LogsTab logs={logs} loading={logsLoading}
                                            logLines={logLines} setLogLines={setLogLines} onFetch={fetchLogs} />}
@@ -295,6 +305,143 @@ export function EnvironmentDetailPage() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function ShareTab({ envId }) {
+  const [invites, setInvites]     = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [creating, setCreating]   = useState(false)
+  const [copied, setCopied]       = useState(null)
+
+  useEffect(() => { loadInvites() }, [envId])
+
+  async function loadInvites() {
+    setLoading(true)
+    setError(null)
+    try { setInvites(await invitationApi.list(envId)) }
+    catch (e) { setError(e.message) }
+    finally { setLoading(false) }
+  }
+
+  async function handleCreate(expiresInHours) {
+    setCreating(true)
+    try {
+      const inv = await invitationApi.create(envId, expiresInHours ? { expiresInHours } : {})
+      await loadInvites()
+      const url = buildInviteUrl(inv.code)
+      await navigator.clipboard.writeText(url).catch(() => {})
+      setCopied(inv.code)
+      setTimeout(() => setCopied(null), 3000)
+    } catch (e) { setError(e.message) }
+    finally { setCreating(false) }
+  }
+
+  async function handleRevoke(invId) {
+    try {
+      await invitationApi.revoke(invId)
+      await loadInvites()
+    } catch (e) { setError(e.message) }
+  }
+
+  function copyLink(code) {
+    const url = buildInviteUrl(code)
+    navigator.clipboard.writeText(url).catch(() => {})
+    setCopied(code)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const active = invites.filter(i => !i.revoked)
+
+  return (
+    <div>
+      <div style={{ marginBottom: 18 }}>
+        <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: C.ink }}>
+          Share this workspace
+        </h3>
+        <p style={{ margin: 0, fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
+          Create an invitation link. Anyone with the link can view the environment's terminal and desktop URLs.
+          Invitations do not grant Kubernetes administration access.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+        <Button variant="primary" size="sm" loading={creating} loadingLabel="Creating…"
+          onClick={() => handleCreate(72)}>
+          + Create link (72 hours)
+        </Button>
+        <Button variant="secondary" size="sm" loading={creating} loadingLabel="Creating…"
+          onClick={() => handleCreate(null)}>
+          + No expiry
+        </Button>
+      </div>
+
+      <ErrorMessage error={error} />
+
+      {loading ? (
+        <div style={{ padding: '24px 0', textAlign: 'center' }}><Spinner size={18} /></div>
+      ) : active.length === 0 ? (
+        <p style={{ color: C.muted, fontSize: 13 }}>No active invitation links.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {active.map(inv => {
+            const url = buildInviteUrl(inv.code)
+            const expLabel = inv.expiresAt
+              ? `Expires ${new Date(inv.expiresAt).toLocaleDateString()}`
+              : 'No expiry'
+            const isCopied = copied === inv.code
+            return (
+              <div key={inv.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                border: `1px solid ${C.border}`, borderRadius: R.lg,
+                padding: '10px 14px', background: C.bg,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.body,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {url}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.faint, marginTop: 2 }}>
+                    {expLabel} · {inv.useCount} use{inv.useCount !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <Button size="sm" variant={isCopied ? 'ghost' : 'secondary'}
+                  style={{ flexShrink: 0, color: isCopied ? C.green : undefined }}
+                  onClick={() => copyLink(inv.code)}>
+                  {isCopied ? '✓ Copied' : 'Copy link'}
+                </Button>
+                <Button size="sm" variant="ghost"
+                  style={{ flexShrink: 0, color: C.red }}
+                  onClick={() => handleRevoke(inv.id)}>
+                  Revoke
+                </Button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {invites.some(i => i.revoked) && (
+        <details style={{ marginTop: 16 }}>
+          <summary style={{ fontSize: 12, color: C.faint, cursor: 'pointer' }}>
+            Show revoked ({invites.filter(i => i.revoked).length})
+          </summary>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {invites.filter(i => i.revoked).map(inv => (
+              <div key={inv.id} style={{
+                fontSize: 11, fontFamily: FONT.mono, color: C.faint,
+                border: `1px solid ${C.divider}`, borderRadius: R.md,
+                padding: '6px 10px',
+                textDecoration: 'line-through',
+              }}>
+                {inv.code}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
 
 function OverviewTab({ env, accent, showTech, setShowTech }) {
   return (

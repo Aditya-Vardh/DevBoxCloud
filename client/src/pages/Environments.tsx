@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { runtimeLabels } from "@shared/cnad";
+import { runtimeLabels, runtimeIcons } from "@shared/cnad";
 import type { EnvironmentRuntime } from "@shared/cnad";
-import { Boxes, Plus, Search, TerminalSquare } from "lucide-react";
+import { Boxes, Plus, Search } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "wouter";
 
@@ -51,7 +51,7 @@ export default function EnvironmentsPage() {
               workspaces.
             </p>
           </div>
-          <Link href="/environments/new">
+          <Link href="/app/environments/new">
             <Button className="bg-indigo-400 text-indigo-950 hover:bg-indigo-300">
               <Plus className="mr-2 h-4 w-4" />
               New environment
@@ -111,11 +111,11 @@ export default function EnvironmentsPage() {
                   key={environment.id}
                   className="flex flex-col gap-3 p-4 transition-colors hover:bg-white/[0.025] sm:flex-row sm:items-center"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-300/10 text-indigo-200">
-                    <TerminalSquare className="h-4 w-4" />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-lg">
+                    {runtimeIcons[environment.runtime as EnvironmentRuntime] ?? "🖥"}
                   </span>
                   <Link
-                    href={`/environments/${environment.id}`}
+                    href={`/app/environments/${environment.id}`}
                     className="min-w-0 flex-1"
                   >
                     <p className="text-sm font-medium text-white">
@@ -146,7 +146,7 @@ export default function EnvironmentsPage() {
               <p className="mt-1 text-xs text-slate-500">
                 Change your filters or create a new workspace.
               </p>
-              <Link href="/environments/new">
+              <Link href="/app/environments/new">
                 <Button
                   size="sm"
                   className="mt-5 bg-indigo-400 text-indigo-950 hover:bg-indigo-300"

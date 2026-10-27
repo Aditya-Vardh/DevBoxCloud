@@ -59,14 +59,18 @@ export function WorkspacesPage() {
       {/* Top bar */}
       <div style={S.topBar}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
-            <span style={{ fontSize: 22, lineHeight: 1 }}>⬡</span>
-            <h1 style={S.title}>DevBox</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <span style={{ fontSize: 22, lineHeight: 1, color: C.primary }}>⬡</span>
+            <h1 style={S.title}>My Workspaces</h1>
           </div>
-          <p style={S.subtitle}>Cloud development workspaces</p>
+          <p style={S.subtitle}>
+            {workspaces.length > 0
+              ? `${workspaces.length} workspace${workspaces.length !== 1 ? 's' : ''} · ${workspaces.reduce((s, w) => s + (w.environmentCount || 0), 0)} environment${workspaces.reduce((s, w) => s + (w.environmentCount || 0), 0) !== 1 ? 's' : ''}`
+              : 'Organize your development environments into workspaces'}
+          </p>
         </div>
-        <Button variant="primary" size="lg" icon="+" onClick={() => setShowCreate(true)}>
-          New Workspace
+        <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
+          + New Workspace
         </Button>
       </div>
 
@@ -169,7 +173,7 @@ function WorkspaceCard({ ws, onOpen, onDelete }) {
   })
 
   return (
-    <div style={S.card}>
+    <div style={S.card} className="card-hover">
       {/* Left: icon + info */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
         <div style={S.wsIcon}>
@@ -182,11 +186,13 @@ function WorkspaceCard({ ws, onOpen, onDelete }) {
           )}
           <div style={S.wsMeta}>
             <span>Created {created}</span>
+            {ws.environmentCount > 0 && (
+              <><span style={S.metaDot}>·</span>
+              <span>{ws.environmentCount} environment{ws.environmentCount !== 1 ? 's' : ''}</span></>
+            )}
             {ws.applicationCount > 0 && (
-              <>
-                <span style={S.metaDot}>·</span>
-                <span>{ws.applicationCount} application{ws.applicationCount !== 1 ? 's' : ''}</span>
-              </>
+              <><span style={S.metaDot}>·</span>
+              <span>{ws.applicationCount} app{ws.applicationCount !== 1 ? 's' : ''}</span></>
             )}
           </div>
         </div>

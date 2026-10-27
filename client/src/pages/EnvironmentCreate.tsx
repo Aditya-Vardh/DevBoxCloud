@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
+import { runtimeIcons } from "@shared/cnad";
+import type { EnvironmentRuntime } from "@shared/cnad";
 import {
   ArrowLeft,
   ArrowRight,
@@ -46,7 +48,7 @@ export default function EnvironmentCreate() {
           ? "Workspace is ready."
           : "Kubernetes accepted the workspace. Monitoring readiness."
       );
-      setLocation(`/environments/${result.environmentId}`);
+      setLocation(`/app/environments/${result.environmentId}`);
     },
     onError: error => toast.error(error.message),
   });
@@ -110,7 +112,7 @@ export default function EnvironmentCreate() {
       <section className="mx-auto max-w-4xl">
         <div className="mb-8">
           <Link
-            href="/environments"
+            href="/app/environments"
             className="mb-4 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -199,8 +201,8 @@ export default function EnvironmentCreate() {
                       className={`rounded-2xl border p-4 text-left transition-all ${selected?.id === template.id ? "border-indigo-300/50 bg-indigo-300/[0.08] shadow-lg shadow-indigo-500/5" : "border-white/[0.07] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"}`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-cyan-200">
-                          <Server className="h-4 w-4" />
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-lg">
+                          {runtimeIcons[template.runtime as EnvironmentRuntime] ?? "🖥"}
                         </span>
                         {selected?.id === template.id ? (
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-300 text-indigo-950">

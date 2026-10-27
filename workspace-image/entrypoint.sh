@@ -350,7 +350,384 @@ cat > /var/lib/devbox/index.html << HTML_EOF
 </html>
 HTML_EOF
 
-# ── Cleanup ───────────────────────────────────────────────────────────────────
+# ── Create template-specific starter projects ─────────────────────────────────
+STARTER_DIR="/workspace/starter"
+if [ ! -d "${STARTER_DIR}" ]; then
+    mkdir -p "${STARTER_DIR}"
+    case "${DEVBOX_TEMPLATE_ID}" in
+        python)
+            # Python hello-world + Flask starter
+            cat > "${STARTER_DIR}/hello.py" << 'PYEOF'
+#!/usr/bin/env python3
+"""DevBox Python Starter — run with: python3 hello.py"""
+
+def greet(name: str) -> str:
+    return f"Hello, {name}! Welcome to DevBox Python workspace."
+
+if __name__ == "__main__":
+    print(greet("DevBox"))
+    
+    import sys
+    version = sys.version_info
+    print(f"Python {version.major}.{version.minor}.{version.micro} ✓")
+PYEOF
+            cat > "${STARTER_DIR}/app.py" << 'FLASKEOF'
+#!/usr/bin/env python3
+"""Simple Flask API starter — pip install flask && python3 app.py"""
+try:
+    from flask import Flask, jsonify
+    app = Flask(__name__)
+
+    @app.route("/")
+    def index():
+        return jsonify({"message": "DevBox Flask API", "status": "running"})
+
+    @app.route("/health")
+    def health():
+        return jsonify({"status": "ok"})
+
+    if __name__ == "__main__":
+        app.run(host="0.0.0.0", port=5000, debug=True)
+except ImportError:
+    print("Flask not installed. Run: pip3 install flask")
+    print("Then: python3 app.py")
+FLASKEOF
+            cat > "${STARTER_DIR}/requirements.txt" << 'REQEOF'
+flask>=3.0.0
+requests>=2.31.0
+REQEOF
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# Python Workspace Starter
+
+## Run the hello-world script
+```bash
+cd /workspace/starter
+python3 hello.py
+```
+
+## Set up a virtual environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Start the Flask API
+```bash
+python3 app.py
+# Visit http://localhost:5000
+```
+READMEEOF
+            python3 "${STARTER_DIR}/hello.py" > /dev/null 2>&1 || true
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+
+        nodejs)
+            # Node.js hello-world + Express starter
+            cat > "${STARTER_DIR}/hello.js" << 'NODEEOF'
+#!/usr/bin/env node
+// DevBox Node.js Starter — run with: node hello.js
+
+function greet(name) {
+  return `Hello, ${name}! Welcome to DevBox Node.js workspace.`;
+}
+
+console.log(greet("DevBox"));
+console.log(`Node.js ${process.version} ✓`);
+NODEEOF
+            cat > "${STARTER_DIR}/server.js" << 'EXPREOF'
+// Simple HTTP server starter — node server.js
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ 
+    message: 'DevBox Node.js Server', 
+    version: process.version,
+    status: 'running' 
+  }));
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
+EXPREOF
+            cat > "${STARTER_DIR}/package.json" << 'PKGJSONEOF'
+{
+  "name": "devbox-starter",
+  "version": "1.0.0",
+  "description": "DevBox Node.js workspace starter",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}
+PKGJSONEOF
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# Node.js Workspace Starter
+
+## Run the hello-world script
+```bash
+cd /workspace/starter
+node hello.js
+```
+
+## Start the HTTP server
+```bash
+node server.js
+# Visit http://localhost:3000
+```
+
+## Create a React app (Vite)
+```bash
+cd /workspace
+npm create vite@latest my-app -- --template react
+cd my-app && npm install && npm run dev
+```
+READMEEOF
+            node "${STARTER_DIR}/hello.js" > /dev/null 2>&1 || true
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+
+        java)
+            # Java hello-world + Maven project
+            mkdir -p "${STARTER_DIR}/src/main/java/com/devbox"
+            cat > "${STARTER_DIR}/src/main/java/com/devbox/Hello.java" << 'JAVAEOF'
+package com.devbox;
+
+/**
+ * DevBox Java Starter
+ * Compile: javac Hello.java
+ * Run:     java com.devbox.Hello
+ */
+public class Hello {
+    public static String greet(String name) {
+        return "Hello, " + name + "! Welcome to DevBox Java workspace.";
+    }
+
+    public static void main(String[] args) {
+        System.out.println(greet("DevBox"));
+        System.out.println("Java " + System.getProperty("java.version") + " ✓");
+    }
+}
+JAVAEOF
+            # Also create a simple standalone file
+            cat > "${STARTER_DIR}/Hello.java" << 'JAVAEOF2'
+/**
+ * DevBox Java Quick Start
+ * Compile: javac Hello.java
+ * Run:     java Hello
+ */
+public class Hello {
+    public static void main(String[] args) {
+        System.out.println("Hello from DevBox Java!");
+        System.out.println("Java version: " + System.getProperty("java.version"));
+    }
+}
+JAVAEOF2
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# Java Workspace Starter
+
+## Quick start (single file)
+```bash
+cd /workspace/starter
+javac Hello.java
+java Hello
+```
+
+## Maven project
+```bash
+cd /workspace
+mvn archetype:generate \
+  -DgroupId=com.example \
+  -DartifactId=my-app \
+  -DarchetypeArtifactId=maven-archetype-quickstart \
+  -DinteractiveMode=false
+cd my-app && mvn compile && mvn exec:java -Dexec.mainClass=com.example.App
+```
+
+## Verify tools
+```bash
+java --version
+javac --version
+mvn --version
+gradle --version
+```
+READMEEOF
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+
+        react)
+            # React/Vite starter instructions
+            cat > "${STARTER_DIR}/create-react-app.sh" << 'REACTEOF'
+#!/bin/bash
+# Run this script to scaffold a React/Vite app
+set -e
+cd /workspace
+echo "Creating React app with Vite..."
+npm create vite@latest my-react-app -- --template react
+cd my-react-app
+npm install
+echo ""
+echo "React app created! Run:"
+echo "  cd /workspace/my-react-app"
+echo "  npm run dev"
+REACTEOF
+            chmod +x "${STARTER_DIR}/create-react-app.sh"
+            cat > "${STARTER_DIR}/hello.js" << 'NODEEOF'
+// DevBox React workspace — Node.js is available
+console.log(`Hello from DevBox React workspace!`);
+console.log(`Node.js ${process.version} ✓`);
+console.log('');
+console.log('Create a React app:');
+console.log('  npm create vite@latest my-app -- --template react');
+console.log('  cd my-app && npm install && npm run dev');
+NODEEOF
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# React Workspace Starter
+
+## Create a React + Vite app
+```bash
+npm create vite@latest my-app -- --template react
+cd my-app
+npm install
+npm run dev
+# Visit http://localhost:5173
+```
+
+## Create a React + TypeScript app
+```bash
+npm create vite@latest my-ts-app -- --template react-ts
+```
+
+## Verify Node.js
+```bash
+node --version
+npm --version
+```
+READMEEOF
+            node "${STARTER_DIR}/hello.js" > /dev/null 2>&1 || true
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+
+        fullstack)
+            # Full stack starter with multiple files
+            cat > "${STARTER_DIR}/verify.sh" << 'VERIFYEOF'
+#!/bin/bash
+# Verify all Full Stack tools
+echo "=== DevBox Full Stack — Tool Verification ==="
+echo ""
+command -v node    &>/dev/null && echo "✓ Node.js    $(node --version)"    || echo "✗ node not found"
+command -v npm     &>/dev/null && echo "✓ npm        $(npm --version)"     || echo "✗ npm not found"
+command -v python3 &>/dev/null && echo "✓ Python3    $(python3 --version)" || echo "✗ python3 not found"
+command -v java    &>/dev/null && echo "✓ Java       $(java --version 2>&1 | head -1)" || echo "✗ java not found"
+command -v javac   &>/dev/null && echo "✓ javac      $(javac --version)"   || echo "✗ javac not found"
+command -v mvn     &>/dev/null && echo "✓ Maven      $(mvn --version 2>&1 | head -1)" || echo "✗ mvn not found"
+command -v psql    &>/dev/null && echo "✓ psql       $(psql --version)"    || echo "✗ psql not found"
+command -v docker  &>/dev/null && echo "✓ docker     $(docker --version 2>&1 | cut -d',' -f1)" || echo "✗ docker not found"
+command -v git     &>/dev/null && echo "✓ git        $(git --version)"     || echo "✗ git not found"
+echo ""
+echo "Full Stack workspace ready!"
+VERIFYEOF
+            chmod +x "${STARTER_DIR}/verify.sh"
+            cat > "${STARTER_DIR}/api.js" << 'APIEOF'
+// Simple Node.js API — node api.js
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    message: 'DevBox Full Stack API',
+    runtimes: ['Node.js', 'Python', 'Java'],
+    status: 'running'
+  }));
+});
+
+server.listen(4000, () => console.log('API at http://localhost:4000'));
+APIEOF
+            cat > "${STARTER_DIR}/hello.py" << 'PYEOF'
+#!/usr/bin/env python3
+print("Python ready:", __import__('sys').version.split()[0])
+PYEOF
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# Full Stack Workspace Starter
+
+## Verify all tools
+```bash
+bash /workspace/starter/verify.sh
+```
+
+## Node.js API
+```bash
+node /workspace/starter/api.js
+```
+
+## Python script
+```bash
+python3 /workspace/starter/hello.py
+```
+
+## Java
+```bash
+java --version && javac --version
+```
+
+## PostgreSQL client
+```bash
+psql --version
+# Connect to a local PostgreSQL (if running):
+# psql -h localhost -U postgres
+```
+READMEEOF
+            bash "${STARTER_DIR}/verify.sh" > /dev/null 2>&1 || true
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+
+        *)
+            # Ubuntu general starter
+            cat > "${STARTER_DIR}/welcome.sh" << 'WELCOMEEOF'
+#!/bin/bash
+echo "=== DevBox Ubuntu Workspace ==="
+echo ""
+echo "System: $(uname -a)"
+echo "Bash:   $(bash --version | head -1)"
+echo "Git:    $(git --version)"
+echo "Python: $(python3 --version)"
+echo "Curl:   $(curl --version | head -1)"
+echo ""
+echo "Workspace: /workspace"
+echo "Try: ls /workspace"
+WELCOMEEOF
+            chmod +x "${STARTER_DIR}/welcome.sh"
+            bash "${STARTER_DIR}/welcome.sh" > /dev/null 2>&1 || true
+            cat > "${STARTER_DIR}/README.md" << 'READMEEOF'
+# Ubuntu Workspace Starter
+
+## Verify tools
+```bash
+bash /workspace/starter/welcome.sh
+```
+
+## Install packages
+```bash
+apt-get install -y <package>  # (requires root, use sudo)
+```
+
+## Git workflow
+```bash
+git init /workspace/my-project
+cd /workspace/my-project
+git config user.email "you@example.com"
+git config user.name "Your Name"
+```
+READMEEOF
+            chown -R devuser:devuser "${STARTER_DIR}"
+            ;;
+    esac
+fi
+
 cleanup() {
     echo "[devbox] shutting down (env=${DEVBOX_ENV_NAME} template=${DEVBOX_TEMPLATE_ID})"
     vncserver -kill "${VNC_DISPLAY}" 2>/dev/null || true

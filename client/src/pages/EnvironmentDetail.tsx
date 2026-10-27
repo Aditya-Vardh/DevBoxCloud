@@ -15,11 +15,16 @@ import {
   CheckCircle2,
   CircleAlert,
   Clipboard,
+  Clock,
   ExternalLink,
+  Link2,
   Loader2,
   Monitor,
   RefreshCw,
+  Share2,
   Terminal,
+  UserMinus,
+  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -35,8 +40,147 @@ function eventTime(value: Date | string) {
   return new Date(value).toLocaleString();
 }
 
-function QuickStartPanel({ runtime }: { runtime: EnvironmentRuntime }) {
-  const cmds = templateQuickStart[runtime] ?? [];
+function SharePanel({ environmentId }: { environmentId: number }) {
+  const [showPanel, setShowPanel] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const invites = trpc.invite.list.useQuery(
+    { environmentId },
+    { enabled: showPanel }
+  );
+  const members = trpc.invite.members.useQuery(
+    { environmentId },
+    { enabled: showPanel }
+  );
+  const createInvite = trpc.invite.create.useMutation({
+    onSuccess: async result => {
+      await invites.refetch();
+      const url = `${window.location.origin}/invite/${result.code}`;
+      navigator.clipboard.writeText(url).catch(() => undefined);
+      setCopiedCode(result.code);
+      toast.success("Invite link copied to clipboard.");
+      setTimeout(() => setCopiedCode(null), 4000);
+    },
+    onError: err => toast.error(err.message),
+  });
+  const revokeInvite = trpc.invite.revoke.useMutation({
+    onSuccess: async () => {
+      await invites.refetch();
+      toast.success("Invitation revoked.");
+    },
+    onError: err => toast.error(err.message),
+  });
+
+  return (
+    <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
+      <button
+        type="button"
+        onClick={() => setShowPanel(v => !v)}
+        className="flex w-full items-center justify-between"
+      >
+        <div className="flex items-center gap-2">
+          <Share2 className="h-4 w-4 text-cyan-300" />
+          <h2 className="text-sm font-semibold text-white">Share workspace</h2>
+        </div>
+        <span className="text-xs text-slate-500">{showPanel ? "Hide" : "Show"}</span>
+      </button>
+      {showPanel ? (
+        <div className="mt-4 space-y-4">
+          <Button
+            size="sm"
+            disabled={createInvite.isPending}
+            onClick={() => createInvite.mutate({ environmentId, expiresInHours: 72 })}
+            className="w-full bg-indigo-400 text-indigo-950 hover:bg-indigo-300"
+          >
+            {createInvite.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Link2 className="mr-2 h-4 w-4" />
+            )}
+            Create invite link (72h)
+          </Button>
+          {invites.data?.length ? (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Active invites
+              </p>
+              {invites.data.filter(i => i.revoked === "false").map(inv => {
+                const url = `${window.location.origin}/invite/${inv.code}`;
+                const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                return (
+                  <div
+                    key={inv.id}
+                    className="mb-2 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 text-xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-mono text-slate-300">{inv.code}</p>
+                      <p className="mt-0.5 text-slate-500">
+                        {inv.useCount} use{inv.useCount !== 1 ? "s" : ""}
+                        {inv.expiresAt
+                          ? ` · expires ${new Date(inv.expiresAt).toLocaleDateString()}`
+                          : " · no expiry"}
+                        {expired ? " · EXPIRED" : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(url).catch(() => undefined);
+                        setCopiedCode(inv.code);
+                        toast.success("Copied!");
+                        setTimeout(() => setCopiedCode(null), 2000);
+                      }}
+                      className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/[0.07] hover:text-white"
+                      title="Copy link"
+                    >
+                      {copiedCode === inv.code ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <Clipboard className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => revokeInvite.mutate({ invitationId: inv.id })}
+                      className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-white/[0.07] hover:text-rose-300"
+                      title="Revoke"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {members.data?.length ? (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Members with access
+              </p>
+              {members.data.map(m => (
+                <div
+                  key={m.userId}
+                  className="mb-1.5 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 text-xs"
+                >
+                  <Users className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                  <span className="flex-1 text-slate-300">{m.name ?? m.email ?? `User #${m.userId}`}</span>
+                  <span className="text-slate-600">
+                    {new Date(m.redeemedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            showPanel && !members.isLoading ? (
+              <p className="text-xs text-slate-500">No members have joined yet.</p>
+            ) : null
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function QuickStartPanel({ runtime }: { runtime: EnvironmentRuntime }) {  const cmds = templateQuickStart[runtime] ?? [];
   const icon = runtimeIcons[runtime] ?? "🖥";
   const label = runtimeLabels[runtime] ?? runtime;
   if (!cmds.length) return null;
@@ -130,7 +274,7 @@ export default function EnvironmentDetailPage() {
   if (detail.error || !detail.data)
     return (
       <CNADLayout>
-        <Link href="/environments" className="text-sm text-cyan-300">
+        <Link href="/app/environments" className="text-sm text-cyan-300">
           ← Return to environments
         </Link>
         <div className="mt-6 rounded-3xl border border-rose-300/15 bg-rose-300/[0.07] p-6">
@@ -161,7 +305,7 @@ export default function EnvironmentDetailPage() {
       <section>
         <div className="mb-7">
           <Link
-            href="/environments"
+            href="/app/environments"
             className="mb-4 inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -424,6 +568,8 @@ export default function EnvironmentDetailPage() {
 
           <aside className="space-y-5">
             <QuickStartPanel runtime={environment.runtime as EnvironmentRuntime} />
+
+            <SharePanel environmentId={environment.id} />
 
             <section className="rounded-3xl border border-white/[0.07] bg-[#11141f] p-5">
               <h2 className="text-sm font-semibold text-white">Configuration</h2>
