@@ -1,58 +1,23 @@
-version: "3.9"
-
-# DevBox Cloud — local development stack
-# One architecture: React/Vite client + TypeScript/Node tRPC server + MySQL
-#
-# Start: docker compose up mysql -d
-# Then:  pnpm dev   (starts the Node server which serves both API and frontend)
-
 services:
 
-  # ── MySQL (primary datastore) ─────────────────────────────────────────────
-  mysql:
-    image: mysql:8.4
-    container_name: devbox-mysql
+  # ── PostgreSQL — used by the Spring Boot backend ──────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: devbox-postgres
     environment:
-      MYSQL_ROOT_PASSWORD: devbox_root
-      MYSQL_DATABASE: devbox
-      MYSQL_USER: devbox
-      MYSQL_PASSWORD: devbox123
+      POSTGRES_DB:       devboxdb
+      POSTGRES_USER:     devbox
+      POSTGRES_PASSWORD: devbox123
     ports:
-      - "3306:3306"
+      - "5433:5432"
     volumes:
-      - devbox-mysql-data:/var/lib/mysql
+      - devbox-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "devbox", "-pdevbox123"]
+      test: ["CMD-SHELL", "pg_isready -U devbox -d devboxdb"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
-
-  # ── DevBox Node/tRPC server (production image) ─────────────────────────────
-  # Only used when running via docker compose — development uses `pnpm dev`
-  server:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: devbox-server
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: mysql://devbox:devbox123@mysql:3306/devbox
-      PORT: "3000"
-      # Kubernetes config — mount your kubeconfig for K8s access
-      # KUBECONFIG: /root/.kube/config
-    ports:
-      - "3000:3000"
-    volumes:
-      # Mount kubeconfig if running in docker (optional)
-      # - ${USERPROFILE}/.kube:/root/.kube:ro
-      []
-    restart: unless-stopped
-    profiles:
-      - production
+      start_period: 20s
 
 volumes:
-  devbox-mysql-data:
+  devbox-postgres-data:
