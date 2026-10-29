@@ -1,258 +1,197 @@
-# DevBox Cloud
+DevBox Cloud
+Your development environment, in the browser.
 
-On-demand cloud development environments, built on Kubernetes.
+DevBox Cloud is a Kubernetes-powered platform for creating on-demand development environments. Choose a template, create an environment, and work in a browser-based terminal or a full Linux desktop — without installing the development toolchain directly on your computer.
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white" alt="Spring Boot 4.1" />
+  <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/Docker-enabled-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Kubernetes-Minikube-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes with Minikube" />
+</p>
 
-Pick a template (Java, Python, Node.js, React, Full Stack, Ubuntu), click **Create**, and DevBox starts an isolated container with every tool already installed. You get a browser terminal and a full Linux desktop in your browser. Nothing to install on your own machine.
+What you can do
+- Create environments on demand from six development templates.
+- Code in the browser with a terminal and a full Linux desktop.
+- Use familiar toolchains for Java, Python, Node.js, React, and full-stack work.
+- Manage environment lifecycles by starting, stopping, and deleting environments.
+- Keep files across stop/start using the workspace's persistent storage.
+- Run locally with Docker, Minikube, PostgreSQL, and the included Maven wrapper.
+Development templates
+Template	Included tools
+Ubuntu Development	Bash, Git, curl, Vim, htop, build tools
+Python Development	Python 3.12, pip, virtual environments
+Node.js Development	Node.js 20, npm, npx
+Java Development	OpenJDK 21, javac, Maven, Gradle
+React Development	Node.js 20, npm, Vite
+Full Stack Development	Node.js, Python, Java, Maven, PostgreSQL client, Docker CLI
 
-```
+
+Implementation note: The current implementation uses a shared workspace image. Template selection configures the environment's defaults and presentation; each template does not have a separate container image.
+
+How it works
 Browser
-  ↓
-React frontend (Vite, :5173)
-  ↓  /api
-Spring Boot backend (:8080)  ←→  PostgreSQL (:5433)
-  ↓
-Kubernetes (Minikube)
-  ↓
-Workspace pod (one per environment)
-  ├── nginx gateway  → /  /terminal/  /desktop/  /healthz
-  ├── ttyd           → browser terminal
-  ├── TigerVNC + XFCE + noVNC → browser desktop
-  └── /workspace     → PersistentVolume (survives stop/start)
-```
+   │
+   ▼
+React + Vite frontend (:5173)
+   │  /api
+   ▼
+Spring Boot REST API (:8080) ───── PostgreSQL (:5433)
+   │
+   ▼
+Kubernetes on Minikube
+   │
+   ▼
+Workspace Pod
+   ├── nginx gateway
+   ├── ttyd browser terminal
+   ├── TigerVNC + XFCE + noVNC desktop
+   └── /workspace persistent storage
+Tech stack
+Layer	Technologies
+Frontend	React 18, Vite
+Backend	Java 21, Spring Boot, Spring Data JPA
+Database	PostgreSQL 16
+Workspace runtime	Docker, Kubernetes, Minikube
+Browser terminal	ttyd
+Browser desktop	TigerVNC, XFCE, noVNC
+Web gateway	nginx
+Tests	JUnit 5, in-memory H2 for tests
 
----
 
-## 1. What you need installed
+Run locally
+These instructions are for Windows PowerShell. macOS/Linux alternatives are included where needed.
+Prerequisites
+Install and start the following tools:
+Tool	Version / requirement	Verify
+Git	Any recent version	git --version
+Java JDK	21	java --version
+Node.js	20 or newer	node --version
+Docker Desktop	Installed and running	docker ps
+Minikube	1.33+	minikube version
+kubectl	1.29+	kubectl version --client
 
-| Tool | Version | Check |
-|---|---|---|
-| Git | any | `git --version` |
-| Java (JDK) | 21 | `java --version` |
-| Node.js | 20 or newer | `node --version` |
-| Docker Desktop | any, **must be running** | `docker ps` |
-| Minikube | 1.33+ | `minikube version` |
-| kubectl | 1.29+ | `kubectl version --client` |
 
-Maven is **not** needed, the project includes its own wrapper (`mvnw`).
-
-Recommended machine: 8 GB RAM or more, ~15 GB free disk. Windows 10/11, macOS and Linux all work. Commands below are shown for **Windows PowerShell** with macOS/Linux notes where they differ.
-
----
-
-## 2. Get the code
-
-```bash
+Maven does not need to be installed separately; the backend includes the Maven Wrapper. A machine with 8 GB RAM or more and around 15 GB of free disk space is recommended. The initial workspace image build may take 10–25 minutes, depending on your connection and machine.
+1. Clone the repository
 git clone https://github.com/Aditya-Vardh/DevBoxCloud.git
 cd DevBoxCloud
-```
-
----
-
-## 3. Run it (5 steps, in order)
-
-Open **Docker Desktop** first and wait until it says it's running.
-
-### Step 1: Start the database
-
-```bash
+2. Start PostgreSQL
+Make sure Docker Desktop is running, then run from the repository root:
 docker compose up -d
 docker compose ps
-```
-
-Wait until the status shows `healthy`.
-
-### Step 2: Start Kubernetes (Minikube)
-
-```bash
+Wait until the database service reports that it is healthy before continuing.
+3. Start Minikube
 minikube start --driver=docker --cpus=4 --memory=4096
 kubectl config use-context minikube
 kubectl get nodes
-```
-
-The node should show `Ready`. If your machine has less than 6 GB RAM free, use `--memory=3072`.
-
-### Step 3: Build the workspace image
-
-This is the container image every environment runs on (Ubuntu + all toolchains + desktop). **The first build takes 10 to 25 minutes** (it downloads a lot). Do it once.
-
-```bash
+Confirm the node is in the Ready state. If your machine is under memory pressure, close other applications before continuing.
+4. Build and load the workspace image
+Run these commands from the repository root:
 docker build -t devbox/workspace:latest ./workspace-image
 minikube image load devbox/workspace:latest
-```
-
-Check it loaded:
-
-```bash
-minikube image ls | findstr devbox        # Windows
-minikube image ls | grep devbox           # macOS / Linux
-```
-
-You should see `devbox/workspace:latest`.
-
-### Step 4: Start the backend (Terminal 1)
-
-```powershell
+minikube image ls | findstr devbox
+Make sure devbox/workspace:latest appears in the image list. This is the image used by the workspace pods.
+5. Start the backend
+Open Terminal 1:
 cd backend
-.\mvnw.cmd spring-boot:run          # Windows
-```
-```bash
+.\mvnw.cmd spring-boot:run
+On macOS/Linux:
 cd backend
-chmod +x mvnw && ./mvnw spring-boot:run     # macOS / Linux
-```
-
-Wait for these lines (first run downloads dependencies, give it a couple of minutes):
-
-```
-Started BackendApplication in N seconds
-Seeded 6 environment template(s)
-Kubernetes client initialized (using kubeconfig)
-```
-
-Leave this terminal running.
-
-### Step 5: Start the frontend (Terminal 2)
-
-```bash
+chmod +x mvnw
+./mvnw spring-boot:run
+Wait for Spring Boot to finish starting. Keep this terminal open.
+6. Start the frontend
+Open Terminal 2 from the repository root:
 cd frontend
 npm install
 npm run dev
-```
+Open http://localhost:5173 in your browser.
+Create your first environment
+1. Open DevBox Cloud and select Get started.
+2. Create a workspace using New Workspace.
+3. Inside the workspace, select New Environment.
+4. Choose a template, enter a name, and create the environment.
+5. Wait for its status to change from Starting to Running.
+6. Open the workspace landing page, Terminal, or Desktop.
+Environment startup may take around 30–75 seconds, depending on your machine and cluster state.
+Try a starter program
+Template	Example command
+Java	cd /workspace/starter && javac Hello.java && java Hello
+Python	python3 /workspace/starter/hello.py
+Node.js	node /workspace/starter/hello.js
+Ubuntu	bash /workspace/starter/welcome.sh
 
-Open **http://localhost:5173** 🎉
 
----
+Stop is intended to retain workspace files. Delete removes the environment and its files.
+Useful ports
+Port	Service
+5173	Vite development server
+8080	Spring Boot API
+5433	PostgreSQL
+Dynamic	Per-environment Kubernetes port-forwarding
 
-## 4. Using DevBox
 
-1. Click **Get started**, then **+ New Workspace** and give it a name.
-2. Inside the workspace click **+ New Environment**.
-3. Pick a template (for example **Java**), name it, click **Create Environment**.
-4. Wait 30 to 75 seconds while the status goes `Starting` → `Running`.
-5. Use the buttons:
-
-| Button | What you get |
-|---|---|
-| **Workspace** | Landing page showing the installed tool versions |
-| **Terminal** | Browser terminal inside the container, in `/workspace` |
-| **Desktop** | Full Linux (XFCE) desktop in the browser |
-
-Try a starter program in the terminal:
-
-| Template | Command |
-|---|---|
-| Java | `cd /workspace/starter && javac Hello.java && java Hello` |
-| Python | `python3 /workspace/starter/hello.py` |
-| Node.js | `node /workspace/starter/hello.js` |
-| Ubuntu | `bash /workspace/starter/welcome.sh` |
-
-**Stop** keeps your files. **Delete** removes the environment and its files.
-
----
-
-## 5. Templates
-
-All six use the same image (`devbox/workspace:latest`). The template ID only changes the landing page, prompt and defaults.
-
-| Template | Tools |
-|---|---|
-| Ubuntu | bash, git, curl, vim, htop, build-essential |
-| Python | python 3.12, pip, venv |
-| Node.js | node 20, npm, npx |
-| Java | OpenJDK 21, javac, Maven, Gradle |
-| React | node 20, npm, Vite |
-| Full Stack | node, python, java, maven, psql, docker CLI |
-
----
-
-## 6. Ports
-
-| Port | Service |
-|---|---|
-| 5173 | Frontend (Vite) |
-| 8080 | Backend API |
-| 5433 | PostgreSQL |
-| dynamic | `kubectl port-forward` to each environment (auto-managed) |
-
-Make sure 5173, 8080 and 5433 are free before starting.
-
----
-
-## 7. Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `docker compose up` fails / Docker error | Start Docker Desktop and wait until it is fully running |
-| Backend: can't connect to database | `docker compose ps` must show `healthy`. Check nothing else uses port 5433 |
-| Backend: Kubernetes client error | Run `minikube start`, then `kubectl cluster-info` |
-| Environment stuck on `Starting`, `ErrImageNeverPull` or `ImagePullBackOff` | Image not in Minikube. Run `minikube image load devbox/workspace:latest` |
-| Environment `CrashLoopBackOff` | `kubectl get pods -n devbox` then `kubectl logs <pod> -n devbox` |
-| Terminal or Desktop link gives 404 or blank | Wait 30 to 75 s, then click **Refresh** on the environment page |
-| Grey desktop | XFCE is still loading, wait 15 s and reload the tab |
-| `Port 8080 already in use` | Close the other app using 8080 (or an old backend run) |
-| `permission denied: ./mvnw` (macOS/Linux) | `chmod +x backend/mvnw` |
-| After a Minikube/PC restart, pods show `Error` | `kubectl delete pods -n devbox --field-selector status.phase=Failed` and wait ~30 s |
-| Out of memory | Run `minikube stop`, then `minikube start --memory=3072`, or delete unused environments |
-
-Complete reset (wipes everything):
-
-```bash
-docker compose down -v
-minikube delete
-```
-
----
-
-## 8. Daily start (after first setup)
-
-```bash
+Make sure the fixed ports are available before starting the application.
+Daily startup
+After the initial setup, start Docker Desktop and run:
 docker compose up -d
 minikube start
-cd backend && ./mvnw spring-boot:run        # Terminal 1  (.\mvnw.cmd on Windows)
-cd frontend && npm run dev                  # Terminal 2
-```
-
----
-
-## 9. Run tests
-
-No database or Kubernetes needed (tests use in-memory H2).
-
-```bash
+Then start the backend in Terminal 1:
 cd backend
-./mvnw test          # .\mvnw.cmd test on Windows
-```
-
----
-
-## 10. Project structure
-
-```
-backend/          Spring Boot 4 REST API (Java 21, JPA, PostgreSQL, Kubernetes client)
-frontend/         React 18 + Vite UI
-workspace-image/  Dockerfile, entrypoint and nginx config for the workspace container
-k8s/              Raw Kubernetes manifests
-helm/devbox/      Helm chart
-scripts/          Verification scripts
-docker-compose.yml   PostgreSQL for local development
-```
-
-> `server/`, `client/` and `drizzle/` are an earlier Node/tRPC prototype and are **not** used by the running app.
-
----
-
-## 11. Optional: demo on another device (same Wi-Fi)
-
-Set your PC's Wi-Fi IP before starting the backend so workspace links work from other devices:
-
-```powershell
-$env:DEVBOX_WORKSPACE_HOST = "<your-ip>"
 .\mvnw.cmd spring-boot:run
-```
+Start the frontend in Terminal 2:
+cd frontend
+npm run dev
+Run tests
+Backend tests use an in-memory H2 database, so the test command does not require PostgreSQL or a running Kubernetes cluster:
+cd backend
+.\mvnw.cmd test
+On macOS/Linux, run ./mvnw test.
+Troubleshooting
+Issue	What to check
+Docker commands fail	Open Docker Desktop and wait for it to finish starting.
+Backend cannot connect to PostgreSQL	Run docker compose ps, check database health, and verify port 5433 is not occupied.
+Kubernetes client fails to initialize	Start Minikube and verify with kubectl cluster-info.
+ErrImageNeverPull or ImagePullBackOff	Rebuild the workspace image and run minikube image load devbox/workspace:latest.
+Environment remains on Starting	Check pod status with kubectl get pods -n devbox.
+Workspace pod crashes	Inspect logs with kubectl logs <pod-name> -n devbox.
+Terminal or Desktop fails to load	Confirm the environment is Running, wait briefly, and refresh the page.
+Port 8080 is already in use	Stop the other process or previous backend instance using that port.
+Maven wrapper permission error on macOS/Linux	Run chmod +x backend/mvnw.
+Memory pressure	Stop unused applications/environments and check Minikube's allocated memory.
 
-Then open `http://<your-ip>:5173` from the other device (allow ports 5173 and 8080 in your firewall).
 
----
+To inspect Kubernetes resources:
+kubectl get pods -n devbox
+kubectl get services -n devbox
+kubectl get events -n devbox --sort-by=.metadata.creationTimestamp
+Warning: The following commands remove local data and cluster resources. Use them only when you intentionally want a complete reset.
+docker compose down -v
+minikube delete
 
-## Tech stack
-
-Spring Boot 4.1 · Java 21 · PostgreSQL 16 · React 18 · Vite · Docker · Kubernetes (Minikube) · nginx · ttyd · TigerVNC · noVNC
+Project structure
+DevBoxCloud/
+├── backend/            Spring Boot REST API and backend tests
+├── frontend/           React + Vite application
+├── workspace-image/    Dockerfile and workspace startup/configuration
+├── k8s/                Kubernetes manifests
+├── helm/devbox/        Helm chart
+├── scripts/            Utility and verification scripts
+└── docker-compose.yml  Local PostgreSQL service
+The repository also contains server/, client/, and drizzle/ directories from an earlier Node/tRPC prototype. These are not part of the current React + Spring Boot runtime described above.
+Access from another device on the same Wi-Fi
+For a local demonstration, you can open the frontend from another device on the same network. Find your computer's LAN IP address, then set the workspace host before starting the backend:
+$env:DEVBOX_WORKSPACE_HOST = "<your-lan-ip>"
+cd backend
+.\mvnw.cmd spring-boot:run
+On the other device, open http://<your-lan-ip>:5173. Allow the required ports through your firewall only on a trusted network. This is a local-network demo, not a public production deployment.
+Notes
+- This README describes the local development workflow; it does not claim that a public hosted demo is available.
+- Do not expose local API or database ports to the public internet without appropriate authentication, network controls, and production configuration.
+- Workspace templates currently share the same base image, with template-specific defaults and presentation.
+Contributing
+Issues and pull requests are welcome. For a useful bug report, include your operating system, the command you ran, the complete error message, and whether Docker and Minikube were running.
+License
+No license information is specified here yet. Add a LICENSE file if you intend to grant others permission to use, modify, and distribute the project.
